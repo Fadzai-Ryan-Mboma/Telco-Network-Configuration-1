@@ -1,0 +1,43 @@
+# Liquid Zimbabwe 4G Network Optimizer - Lightweight Container
+FROM python:3.11-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for Liquid Zimbabwe integration
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    postgresql-dev \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Copy requirements first for better layer caching
+COPY requirements-lz.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements-lz.txt
+
+# Copy LZ-specific application files
+COPY agentic_llm_workflow/liquid_zimbabwe_*.py ./
+COPY agentic_llm_workflow/huawei_api_client.py ./
+COPY agentic_llm_workflow/agents_lz.py ./
+COPY agentic_llm_workflow/tools_lz.py ./
+COPY agentic_llm_workflow/utils.py ./
+COPY config-lz.yaml ./
+COPY data/ ./data/
+
+# Create non-root user for security
+RUN adduser -D -s /bin/sh lzuser
+RUN chown -R lzuser:lzuser /app
+USER lzuser
+
+# Expose port for LZ monitoring interface
+EXPOSE 8501
+
+# Health check for container monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8501/health || exit 1
+
+# Default command to start LZ system
+CMD ["python", "agents_lz.py"]
