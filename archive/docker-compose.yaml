@@ -1,0 +1,28 @@
+services:
+  telco_ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUBBLERAN_HOST_PWD: ${PWD}
+    ports:
+      - "8507:8501"
+    environment:
+      - NGC_API_KEY=${NGC_API_KEY}
+      - BUBBLERAN_HOST_PWD=${PWD}
+      - COMPOSE_PROJECT_DIR=${PWD}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${PWD}/agentic_llm_workflow:/workspace/agentic_llm_workflow
+      - ${PWD}/ui_components:/workspace/ui_components
+      - ${PWD}/config.yaml:/workspace/config.yaml
+      - ${PWD}/data:/workspace/data
+      - ${PWD}/bloat:/workspace/bloat
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  
+    privileged: true 
+    deploy:
+      resources:
+        limits:
+          memory: 20G 
+

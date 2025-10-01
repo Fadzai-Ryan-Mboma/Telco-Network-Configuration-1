@@ -2,46 +2,64 @@
 
 ## 🎯 Active Development Files (liquid-4g-network branch)
 
-### 📁 Project Structure
+### 📁 Ultra-Clean Project Structure
 ```
 Telco-Network-Configuration/
-├── liquid-4g-core/                 # 🚀 LZ 4G Core System
-│   ├── agents/                     # Agent implementations
-│   │   ├── liquid_zimbabwe_kpi.py         # KPI management
-│   │   ├── liquid_zimbabwe_monitoring.py  # Network monitoring  
-│   │   ├── liquid_zimbabwe_parameters.py  # Parameter optimization
-│   │   └── huawei_api_client.py           # Live network API
-│   ├── config/                     # Configuration files
-│   │   └── config-lz.yaml                # LZ-only configuration
-│   ├── data/                       # LZ data storage
-│   │   ├── liquid_zimbabwe.db             # LZ database
-│   │   └── historical_data.csv            # Historical KPIs
-│   └── requirements-lz.txt         # LZ dependencies
+├── 🚀 liquid-4g-core/                 # LZ 4G Core System (Your Main Focus)
+│   ├── agents/                         # Agent implementations
+│   │   ├── liquid_zimbabwe_kpi.py             # KPI management
+│   │   ├── liquid_zimbabwe_monitoring.py      # Network monitoring  
+│   │   ├── liquid_zimbabwe_parameters.py      # Parameter optimization
+│   │   └── huawei_api_client.py               # Live network API
+│   ├── config/                         # Configuration files
+│   │   └── config-lz.yaml                    # LZ-only configuration
+│   ├── data/                           # LZ data storage
+│   │   ├── liquid_zimbabwe.db                 # LZ database
+│   │   └── historical_data.csv                # Historical KPIs
+│   └── requirements-lz.txt             # LZ dependencies
 │
-├── lz-container/                   # 🐳 Container Deployment
-│   ├── Dockerfile.lz                     # Alpine-based container
-│   ├── docker-compose.lz.yaml            # Container orchestration
-│   └── start-lz.sh                       # Deployment script
+├── 🐳 lz-container/                   # Container Deployment
+│   ├── Dockerfile.lz                       # Alpine-based container
+│   ├── docker-compose.lz.yaml              # Container orchestration
+│   └── start-lz.sh                         # Deployment script
 │
-├── PHASE1_COMPLETE.md              # 📋 Phase 1 Documentation
-└── archive/                        # 📦 Legacy/Reference Files
-    ├── bloat/                             # Original development files
-    ├── ui_components/                     # UI components (reference)
+├── 📋 PHASE1_COMPLETE.md              # Phase 1 Documentation
+├── 📝 CLEAN_PROJECT_STRUCTURE.md     # This organization guide
+├── config-lz.yaml                    # Main LZ configuration
+├── requirements-lz.txt               # Main LZ dependencies
+├── data/                              # Original data (preserved)
+└── 📦 archive/                        # All Legacy/Reference Files
+    ├── agentic_llm_workflow/              # Original implementations
+    ├── bloat/                             # Development history
+    ├── deploy/                            # Legacy deployment scripts
+    ├── ui_components/                     # UI components
     ├── images/                            # Documentation images
-    └── __pycache__/                       # Cached files
+    ├── config.yaml                        # Original hybrid config
+    ├── docker-compose.yaml                # Original docker setup
+    ├── Dockerfile                         # Original dockerfile
+    ├── requirements.txt                   # Original dependencies
+    ├── CONTRIBUTING.md                    # Legacy guidelines
+    └── DEPLOYMENT_WITHOUT_DOCKER.md       # Legacy deployment docs
 ```
 
 ## 🎨 Clean Development Environment
 
-### Active Files (What You See)
-- **liquid-4g-core/** - Your main development focus
+### Active Files (Ultra-Clean View)
+- **liquid-4g-core/** - Your primary development focus
 - **lz-container/** - Container deployment files  
+- **config-lz.yaml** - Main LZ configuration
+- **requirements-lz.txt** - Main LZ dependencies
 - **PHASE1_COMPLETE.md** - Current progress tracking
 
-### Reference Files (Hidden but Accessible)
-- **archive/** - All legacy BubbleRAN and development files
-- Original **agentic_llm_workflow/** - Reference implementations
-- **data/** - Original data files (kept for reference)
+### Reference Files (Archived)
+- **archive/agentic_llm_workflow/** - Original agent implementations
+- **archive/config.yaml** - Original hybrid configuration
+- **archive/docker-compose.yaml** - Original container setup
+- **archive/Dockerfile** - Original dockerfile
+- **archive/requirements.txt** - Original dependencies
+- **archive/deploy/** - Legacy deployment scripts
+- **archive/bloat/** - All development history
+- **data/** - Original data files (preserved at root level)
 
 ## 🚀 Development Workflow
 
