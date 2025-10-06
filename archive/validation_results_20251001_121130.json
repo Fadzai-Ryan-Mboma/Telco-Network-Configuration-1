@@ -1,0 +1,155 @@
+{
+  "overall_status": "NEEDS_MINOR_FIXES",
+  "timestamp": "2025-10-01T12:11:29.957115",
+  "tests": {
+    "Environment Configuration": {
+      "status": "PASS",
+      "score": 6,
+      "max_score": 10,
+      "details": {
+        "LZ_API_URL": "CONFIGURED",
+        "LZ_API_USERNAME": "CONFIGURED",
+        "LZ_API_PASSWORD": "CONFIGURED",
+        "LZ_API_TIMEOUT": "DEFAULT",
+        "LZ_API_SSL_VERIFY": "DEFAULT",
+        "LZ_DB_PATH": "DEFAULT"
+      },
+      "issues": [],
+      "warnings": [
+        "Optional environment variable LZ_API_TIMEOUT not set, using default",
+        "Optional environment variable LZ_API_SSL_VERIFY not set, using default",
+        "Optional environment variable LZ_DB_PATH not set, using default"
+      ]
+    },
+    "API Client Functionality": {
+      "status": "PASS",
+      "score": 15,
+      "max_score": 15,
+      "details": {
+        "client_creation": "SUCCESS",
+        "configuration": {
+          "api_configured": true,
+          "credentials_present": true,
+          "connection_ready": true,
+          "network_elements": 3,
+          "issues": [],
+          "recommendations": []
+        },
+        "network_elements": 3,
+        "authentication": "SUCCESS"
+      },
+      "issues": [],
+      "warnings": []
+    },
+    "Database Operations": {
+      "status": "PASS",
+      "score": 10,
+      "max_score": 10,
+      "details": {
+        "sites_count": 3,
+        "sites_available": true,
+        "database_stats": {
+          "total_sites": 4,
+          "status_counts": {
+            "error": 1,
+            "live_active": 3
+          },
+          "live_active_count": 3,
+          "total_live_cells": 18,
+          "live_sites": [
+            {
+              "name": "MSH-0014-Chipadze",
+              "location": "Chipadze",
+              "cells": "1,2,3,4,5,6"
+            },
+            {
+              "name": "MSH-0112-Bindura Hospital",
+              "location": "Bindura Hospital",
+              "cells": "1,2,3,4,5,6"
+            },
+            {
+              "name": "MSH-0331-Chiwaridzo 2",
+              "location": "Chiwaridzo 2",
+              "cells": "1,2,3,4,5,6"
+            }
+          ]
+        },
+        "database_tables": 5,
+        "database_initialized": true
+      },
+      "issues": [],
+      "warnings": []
+    },
+    "KPI Management": {
+      "status": "PASS",
+      "score": 10,
+      "max_score": 12,
+      "details": {
+        "kpi_manager_init": "SUCCESS",
+        "kpi_count": 7,
+        "database_schema": "INITIALIZED",
+        "live_data_collection": "SIMULATED",
+        "historical_data": 0
+      },
+      "issues": [],
+      "warnings": [
+        "Live data collection failed (expected without API): 'LiquidZimbabweKPIManager' object has no attribute 'collect_live_kpi_data'"
+      ]
+    },
+    "Parameter Management": {
+      "status": "PASS",
+      "score": 8,
+      "max_score": 10,
+      "details": {
+        "param_manager_init": "SUCCESS",
+        "parameter_count": 6,
+        "optimization_suggestions": 0
+      },
+      "issues": [],
+      "warnings": [
+        "Optimization rules not found"
+      ]
+    },
+    "UI Integration": {
+      "status": "PASS",
+      "score": 8,
+      "max_score": 8,
+      "details": {
+        "ui_imports": "SUCCESS",
+        "kpi_data_function": "Operational",
+        "sites_data_function": 4,
+        "parameter_query_function": "FUNCTIONAL"
+      },
+      "issues": [],
+      "warnings": []
+    },
+    "System Performance": {
+      "status": "PASS",
+      "score": 8,
+      "max_score": 8,
+      "details": {
+        "startup_time": "0.00s",
+        "memory_usage": "116.5MB"
+      },
+      "issues": [],
+      "warnings": []
+    },
+    "Security Configuration": {
+      "status": "PASS",
+      "score": 6,
+      "max_score": 6,
+      "details": {
+        "ssl_verification": "ENABLED",
+        "LZ_API_PASSWORD_present": "YES",
+        "log_level": "INFO"
+      },
+      "issues": [],
+      "warnings": []
+    }
+  },
+  "score": 71,
+  "max_score": 79,
+  "critical_issues": [],
+  "warnings": [],
+  "recommendations": []
+}

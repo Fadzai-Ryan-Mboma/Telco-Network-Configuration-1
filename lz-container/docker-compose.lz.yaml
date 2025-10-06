@@ -8,12 +8,14 @@ services:
     
     # Environment variables for LZ system
     environment:
-      - LZ_ENV=development
+      - LZ_ENV=production
       - PYTHONUNBUFFERED=1
       - TZ=Africa/Harare
-      - LZ_API_URL=${LZ_API_URL}
-      - LZ_API_USERNAME=${LZ_API_USERNAME}
-      - LZ_API_PASSWORD=${LZ_API_PASSWORD}
+      - LZ_API_URL=https://41.174.191.214:31127
+      - LZ_API_USERNAME=cassava.ai
+      - LZ_API_PASSWORD=#Pass123#
+      - LZ_API_SSL_VERIFY=false
+      - LOG_LEVEL=INFO
     
     # Load environment from .env file
     env_file:

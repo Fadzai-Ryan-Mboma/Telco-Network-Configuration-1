@@ -1,0 +1,42 @@
+Authenticate
+
+import requests
+import json
+
+url = "https://41.174.191.214:31127/api/rest/securityManagement/v1/oauth/token"
+
+payload = json.dumps({
+  "grantType": "password",
+  "userName": "cassava.ai",
+  "value": "#Pass123#"
+})
+headers = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json'
+}
+
+response = requests.request("PUT", url, headers=headers, data=payload)
+
+print(response.text)
+
+Query Current
+
+import requests
+import json
+
+url = "https://41.174.191.214:31127/api/rest/mmlManagement/v1/command"
+
+payload = json.dumps({
+  "command": "LST UECOOPERATIONPARA:;",
+  "neNames": [
+    "MSH-0112-Bindura Hospital"
+  ]
+})
+headers = {
+    'X-Auth-Token': 'x-alruc81jamg9dd1g2og8uls6bvs4o607mpen7wk9fvimg6ntg9nvjtip4b7uqm1d6m08oaqoleeqc9o6sary8aoa87mpldfzimk5jyeo464anx456mdc9c9gbs86bx9f',
+    'Content-Type': 'application/json'
+}
+
+response = requests.request("POST", url, headers=headers, data=payload)
+
+print(response.text)

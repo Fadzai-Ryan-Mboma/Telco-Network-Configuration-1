@@ -1,0 +1,31 @@
+FROM python:3.11-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install minimal system dependencies for Streamlit
+RUN apk add --no-cache \
+    gcc \
+    musl-dev \
+    && rm -rf /var/cache/apk/*
+
+# Copy minimal requirements
+COPY archive/requirements-ui-minimal.txt requirements.txt
+
+# Install minimal Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy UI components
+COPY liquid-4g-core/ui/ ./ui/
+COPY liquid-4g-core/config/config-lz.yaml ./config-lz.yaml
+
+# Create non-root user for security
+RUN adduser -D -s /bin/sh lzuser
+RUN chown -R lzuser:lzuser /app
+USER lzuser
+
+# Expose Streamlit port
+EXPOSE 8501
+
+# Command to run just the UI for testing
+CMD ["streamlit", "run", "ui/ui.py", "--server.port", "8501", "--server.address", "0.0.0.0", "--server.headless", "true"]

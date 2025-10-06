@@ -405,6 +405,131 @@ class LiquidZimbabweKPIManager:
         
         return alerts
     
+    def collect_live_kpi_data(self, site_id: str = None) -> Dict:
+        """
+        Collect live KPI data from the network
+        If site_id is provided, collect for specific site, otherwise collect for all sites
+        """
+        try:
+            from agents.huawei_api_client import HuaweiAPIClient
+            
+            # Initialize API client
+            api_client = HuaweiAPIClient()
+            
+            if not api_client.is_authenticated():
+                self.logger.warning("API client not authenticated, using simulated data")
+                return self._get_simulated_kpi_data(site_id)
+            
+            # Collect real-time KPI data
+            kpi_data = {}
+            
+            if site_id:
+                # Collect for specific site
+                sites_to_process = [site_id]
+            else:
+                # Get all sites from database
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT DISTINCT site_id FROM network_sites")
+                    sites_to_process = [row[0] for row in cursor.fetchall()]
+            
+            for site in sites_to_process:
+                site_kpis = {}
+                
+                # Query each KPI from the network
+                for kpi_key, config in self.kpi_config.items():
+                    technical_name = config['technical_name']
+                    
+                    # Use the API to get live data
+                    result = api_client.query_parameter(site, technical_name, "DSP")
+                    
+                    if 'error' not in result:
+                        site_kpis[kpi_key] = {
+                            'value': result.get('result', 0),
+                            'timestamp': datetime.now().isoformat(),
+                            'status': 'live'
+                        }
+                    else:
+                        # Fallback to historical data
+                        historical = self.get_historical_kpi_data(site, kpi_key, hours=1)
+                        if not historical.empty:
+                            latest_value = historical.iloc[-1]['value']
+                            site_kpis[kpi_key] = {
+                                'value': latest_value,
+                                'timestamp': datetime.now().isoformat(),
+                                'status': 'historical'
+                            }
+                
+                kpi_data[site] = site_kpis
+            
+            # Store collected data in database
+            self._store_live_kpi_data(kpi_data)
+            
+            return {
+                'status': 'success',
+                'data': kpi_data,
+                'collection_time': datetime.now().isoformat(),
+                'sites_processed': len(kpi_data)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Live KPI data collection failed: {e}")
+            return self._get_simulated_kpi_data(site_id)
+    
+    def _get_simulated_kpi_data(self, site_id: str = None) -> Dict:
+        """Generate simulated KPI data for testing purposes"""
+        import random
+        
+        kpi_data = {}
+        sites = [site_id] if site_id else ['SITE_001', 'SITE_002', 'SITE_003']
+        
+        for site in sites:
+            site_kpis = {}
+            for kpi_key, config in self.kpi_config.items():
+                # Generate realistic values within normal range
+                normal_range = config.get('normal_range', (0, 100))
+                value = random.uniform(normal_range[0], normal_range[1])
+                
+                site_kpis[kpi_key] = {
+                    'value': round(value, 2),
+                    'timestamp': datetime.now().isoformat(),
+                    'status': 'simulated'
+                }
+            
+            kpi_data[site] = site_kpis
+        
+        return {
+            'status': 'simulated',
+            'data': kpi_data,
+            'collection_time': datetime.now().isoformat(),
+            'sites_processed': len(kpi_data)
+        }
+    
+    def _store_live_kpi_data(self, kpi_data: Dict):
+        """Store live KPI data in the database"""
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.cursor()
+                
+                for site_id, site_kpis in kpi_data.items():
+                    for kpi_key, kpi_info in site_kpis.items():
+                        cursor.execute("""
+                            INSERT INTO kpi_data (site_id, kpi_name, value, timestamp, data_source)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (
+                            site_id,
+                            kpi_key,
+                            kpi_info['value'],
+                            kpi_info['timestamp'],
+                            kpi_info['status']
+                        ))
+                
+                conn.commit()
+                self.logger.info(f"Stored live KPI data for {len(kpi_data)} sites")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to store live KPI data: {e}")
+
     # ========================================
     # ADAPTER METHODS FOR LEGACY AGENT COMPATIBILITY
     # ========================================

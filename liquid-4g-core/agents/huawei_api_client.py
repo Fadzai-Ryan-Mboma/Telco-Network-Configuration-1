@@ -8,11 +8,17 @@ import json
 import logging
 import os
 import time
+import sys
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from functools import wraps
 import urllib3
+
+# Add parent directory to path to import database_helper
+current_dir = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(current_dir))
 
 # Disable SSL warnings for internal network usage
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -74,7 +80,9 @@ class HuaweiAPIClient:
             password: Authentication password (or from env var HUAWEI_PASSWORD)
         """
         # Use environment variables if parameters not provided
-        self.base_url = (base_url or os.getenv('HUAWEI_API_URL', 'https://41.174.191.214:31127')).rstrip('/')
+        # Handle empty/whitespace base_url properly
+        base_url_candidate = base_url or os.getenv('HUAWEI_API_URL', 'https://41.174.191.214:31127')
+        self.base_url = base_url_candidate.strip().rstrip('/') if base_url_candidate.strip() else 'https://41.174.191.214:31127'
         self.username = username or os.getenv('HUAWEI_USERNAME', 'cassava.ai')
         self.password = password or os.getenv('HUAWEI_PASSWORD', '#Pass123#')
         
@@ -101,27 +109,93 @@ class HuaweiAPIClient:
         self.network_elements = self._load_network_elements()
         self.parameter_configs = self._load_parameter_configs()
     
+    def check_configuration(self) -> Dict[str, Any]:
+        """Check API configuration status and readiness"""
+        config_status = {
+            'api_configured': False,
+            'credentials_present': False,
+            'connection_ready': False,
+            'network_elements': len(self.network_elements),
+            'issues': [],
+            'recommendations': []
+        }
+        
+        # Check if API URL is configured
+        if self.base_url and self.base_url != "":
+            config_status['api_configured'] = True
+        else:
+            config_status['issues'].append("API base URL not configured")
+            config_status['recommendations'].append("Set LZ_API_URL environment variable")
+        
+        # Check if credentials are present
+        if self.username and self.password:
+            config_status['credentials_present'] = True
+        else:
+            config_status['issues'].append("API credentials not configured")
+            config_status['recommendations'].append("Set LZ_API_USERNAME and LZ_API_PASSWORD environment variables")
+        
+        # Check if we can attempt connection
+        if config_status['api_configured'] and config_status['credentials_present']:
+            config_status['connection_ready'] = True
+        
+        # Check network elements
+        if config_status['network_elements'] == 0:
+            config_status['issues'].append("No network elements configured")
+            config_status['recommendations'].append("Configure network elements in database or config file")
+        
+        return config_status
+    
     def _load_network_elements(self) -> List[NetworkElement]:
-        """Load network elements from configuration"""
-        # Based on your NE Names.txt file
+        """Load network elements from database, with fallback to hardcoded config"""
+        try:
+            # Try to import and use database helper
+            try:
+                from ..utils.database_helper import get_live_active_sites
+            except ImportError:
+                # Fallback for different import contexts
+                sys.path.insert(0, str(Path(__file__).parent.parent))
+                from utils.database_helper import get_live_active_sites
+            
+            sites = get_live_active_sites()
+            if sites:
+                self.logger.info(f"Loaded {len(sites)} network elements from database")
+                elements = []
+                for name, info in sites.items():
+                    # Parse cell IDs - assuming they're stored as "1,2,3,4,5,6" in database
+                    cell_ids = [1, 2, 3, 4, 5, 6]  # Default
+                    if info.get('cell_ids'):
+                        try:
+                            cell_ids = [int(x.strip()) for x in str(info['cell_ids']).split(',') if x.strip().isdigit()]
+                        except:
+                            pass  # Use default if parsing fails
+                    
+                    elements.append(NetworkElement(
+                        name=name,
+                        site_id=info.get('site_id', ''),
+                        cell_ids=cell_ids,
+                        location=info.get('location', '')
+                    ))
+                return elements
+            else:
+                self.logger.warning("No live active sites found in database, using fallback config")
+                
+        except Exception as e:
+            self.logger.warning(f"Failed to load from database: {e}, using fallback config")
+        
+        # Fallback to hardcoded configuration
+        self.logger.info("Using hardcoded network elements configuration")
         return [
             NetworkElement(
-                name="MSH-0013-Bindura-Zaoga",
-                site_id="MSH-0013",
+                name="MSH-0112-Bindura Hospital",
+                site_id="MSH-0112",
                 cell_ids=[1, 2, 3, 4, 5, 6],
-                location="Bindura Zaoga"
+                location="Bindura Hospital"
             ),
             NetworkElement(
                 name="MSH-0331-Chiwaridzo 2",
                 site_id="MSH-0331",
                 cell_ids=[1, 2, 3, 4, 5, 6],
                 location="Chiwaridzo 2"
-            ),
-            NetworkElement(
-                name="MSH-0112-Bindura Hospital",
-                site_id="MSH-0112",
-                cell_ids=[1, 2, 3, 4, 5, 6],
-                location="Bindura Hospital"
             ),
             NetworkElement(
                 name="MSH-0014-Chipadze",
@@ -139,20 +213,20 @@ class HuaweiAPIClient:
                 query_command="LST PDSCHCFG",
                 modify_command="MOD PDSCHCFG:LOCALCELLID={cell_id},REFERENCESIGNALPWR={value}; {{{ne_name}}}",
                 value_range="-600 to 500",
-                description="Reference signal power configuration for downlink"
+                description="Reference signal power configuration for downlink (Range: -600 to 500, 0.1 dBm units)"
             ),
             "a3_event_offset": ParameterConfig(
                 parameter_name="A3 Event Offset (Intra-freq HO threshold)",
                 query_command="LST UECOOPERATIONPARA",
                 modify_command="MOD UECOOPERATIONPARA:LOCALCELLID={cell_id},A3OFFSET=dB{value}; {{{ne_name}}}",
                 value_range="dB0 to dB15",
-                description="Intra-frequency handover threshold"
+                description="Intra-frequency handover threshold (Range: dB0 to dB15)"
             ),
             "t310_timer": ParameterConfig(
                 parameter_name="T310 Timer (RLF detection)",
                 query_command="LST UETIMERCONST",
                 modify_command="MOD UETIMERCONST:LOCALCELLID={cell_id},T310={value}; {{{ne_name}}}",
-                value_range="MS100_T310 to MS6000_T310",
+                value_range="Timer constants (e.g., MS1000_T310)",
                 description="Radio Link Failure detection timer"
             ),
             "p0_nominal_pusch": ParameterConfig(
@@ -160,7 +234,14 @@ class HuaweiAPIClient:
                 query_command="LST CELLULPCCOMM",
                 modify_command="MOD CELLULPCCOMM:LOCALCELLID={cell_id},P0NOMINALPUSCH={value}; {{{ne_name}}}",
                 value_range="-126 to 24",
-                description="Uplink nominal power control configuration"
+                description="Uplink nominal power control configuration (Range: -126 to 24)"
+            ),
+            "pdcch_aggregation_level": ParameterConfig(
+                parameter_name="PDCCH Aggregation Level",
+                query_command="LST CELLUSPARACFG",
+                modify_command="MOD CELLUSPARACFG:LOCALCELLID={cell_id},USDATAPDCCHSINROFFSET={value}; {{{ne_name}}}",
+                value_range="0 to 30",
+                description="PDCCH aggregation level for control channel robustness (Range: 0 to 30)"
             )
         }
     
@@ -213,6 +294,12 @@ class HuaweiAPIClient:
             self.logger.info("Token expired or about to expire, re-authenticating...")
             return self.authenticate()
         return True
+    
+    def is_authenticated(self) -> bool:
+        """Check if the client is currently authenticated"""
+        return (self.auth_token is not None and 
+                self.token_expires_at is not None and 
+                datetime.now() < self.token_expires_at)
     
     @retry_on_failure(max_retries=2, delay=0.5, backoff=2.0)
     def execute_mml_command(self, command: str, ne_names: List[str]) -> Dict[str, Any]:
@@ -468,4 +555,55 @@ class HuaweiAPIClient:
                 "connected": False,
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
+            }
+    
+    def get_configuration_status(self) -> Dict[str, Any]:
+        """
+        Get overall configuration status of the network
+        
+        Returns:
+            Dict containing configuration status information
+        """
+        try:
+            status = {
+                "is_connected": self.is_connected(),
+                "is_authenticated": self.is_authenticated(),
+                "network_elements_count": len(self.network_elements),
+                "parameter_configs_count": len(self.parameter_configs),
+                "last_check": datetime.now().isoformat(),
+                "api_health": "healthy" if self.is_connected() else "disconnected"
+            }
+            
+            if self.is_connected():
+                # Add network element details
+                status["network_elements"] = []
+                for ne in self.network_elements:
+                    # Handle both dict and NetworkElement objects
+                    if hasattr(ne, 'name'):  # NetworkElement object
+                        status["network_elements"].append({
+                            "name": ne.name,
+                            "site_id": ne.site_id,
+                            "location": ne.location,
+                            "status": "active"
+                        })
+                    else:  # Dict format
+                        status["network_elements"].append({
+                            "name": ne.get("name", "unknown"),
+                            "site_id": ne.get("site_id", "unknown"),
+                            "location": ne.get("location", "unknown"),
+                            "status": ne.get("status", "unknown")
+                        })
+            
+            return status
+            
+        except Exception as e:
+            self.logger.error(f"Get configuration status failed: {e}")
+            return {
+                "is_connected": False,
+                "is_authenticated": False,
+                "network_elements_count": 0,
+                "parameter_configs_count": 0,
+                "last_check": datetime.now().isoformat(),
+                "api_health": "error",
+                "error": str(e)
             }

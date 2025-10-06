@@ -1,4 +1,4 @@
-# Liquid Zimbabwe 4G Network Optimizer - Lightweight Container
+# Liquid Zimbabwe 4G Network Optimizer - Production Container
 FROM python:3.11-alpine
 
 # Set working directory
@@ -8,33 +8,38 @@ WORKDIR /app
 RUN apk add --no-cache \
     gcc \
     musl-dev \
+    sqlite \
     && rm -rf /var/cache/apk/*
 
-# Copy requirements first for better layer caching
-COPY requirements-lz-minimal.txt .
+# Copy and install Python dependencies
+COPY liquid-4g-core/requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-lz-minimal.txt
-
-# Copy LZ-specific application files
-COPY liquid-4g-core/agents/*.py ./
-COPY liquid-4g-core/agents_lz_test.py ./
-COPY liquid-4g-core/lz_ui_test.py ./
-COPY liquid-4g-core/lz_startup_with_ui.py ./
-COPY liquid-4g-core/config/config-lz.yaml ./config-lz.yaml
+# Copy production application files (clean structure)
+COPY liquid-4g-core/unified_database.py ./
+COPY liquid-4g-core/production_checker.py ./
+COPY liquid-4g-core/agents/ ./agents/
+COPY liquid-4g-core/utils/ ./utils/
+COPY liquid-4g-core/ui/ ./ui/
+COPY liquid-4g-core/network/ ./network/
 COPY liquid-4g-core/data/ ./data/
 
-# Create non-root user for security
-RUN adduser -D -s /bin/sh lzuser
-RUN chown -R lzuser:lzuser /app
+# Create directories and set permissions
+RUN mkdir -p ./logs ./backups /data && \
+    adduser -D -s /bin/sh lzuser && \
+    chown -R lzuser:lzuser /app /data
 USER lzuser
 
-# Expose port for LZ monitoring interface
+# Expose port for Streamlit dashboard
 EXPOSE 8501
+
+# Health check for production monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python production_checker.py || exit 1
 
 # Health check for container monitoring (commented out for testing)
 # HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 #     CMD curl -f http://localhost:8501/health || exit 1
 
 # Default command to start LZ system with UI
-CMD ["python", "lz_startup_with_ui.py"]
+CMD ["streamlit", "run", "ui/ui.py", "--server.port", "8501", "--server.address", "0.0.0.0"]
