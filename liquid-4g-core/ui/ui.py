@@ -510,7 +510,11 @@ def main():
             st.rerun()
 
     # Add tab navigation
-    tab1, tab2, tab3 = st.tabs(["📊 Dashboard", "🔍 Parameter Query", "📡 Network Sites"])
+    tab1, tab2, tab3, tab4 = st.tabs(["📊 Dashboard", "🔍 Parameter Query", "📡 Network Sites", "🤖 Agentic Operator"])
+    with tab4:
+        st.header("🤖 Agentic Operator")
+        st.markdown("This tab will host agentic operations and automation tools for network management.")
+        # Add your agentic operator UI components here
     
     with tab1:
         # Dashboard content
