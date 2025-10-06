@@ -22,8 +22,17 @@ class LiquidZimbabweMonitor:
     using real Bindura site data instead of simulation parameters.
     """
     
-    def __init__(self, db_path: str = "../data/liquid_zimbabwe.db"):
-        self.kpi_manager = LiquidZimbabweKPIManager(db_path)
+    def __init__(self, db_path: str = None):
+        import os
+        from pathlib import Path
+        if db_path is None:
+            if os.path.exists("/.dockerenv") or os.environ.get("LZ_DOCKER", "") == "1":
+                resolved_db_path = "/app/data/liquid_zimbabwe.db"
+            else:
+                resolved_db_path = str(Path("data/liquid_zimbabwe.db"))
+        else:
+            resolved_db_path = db_path
+        self.kpi_manager = LiquidZimbabweKPIManager(resolved_db_path)
         self.config = yaml.safe_load(open('../config.yaml', 'r'))
         
         # KPI monitoring thresholds (based on your real data ranges)

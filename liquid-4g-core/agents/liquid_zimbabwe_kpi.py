@@ -13,8 +13,16 @@ import logging
 class LiquidZimbabweKPIManager:
     """Manages the 7 core KPIs for Liquid Zimbabwe network optimization"""
     
-    def __init__(self, db_path: str):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        import os
+        from pathlib import Path
+        if db_path is None:
+            if os.path.exists("/.dockerenv") or os.environ.get("LZ_DOCKER", "") == "1":
+                self.db_path = "/app/data/liquid_zimbabwe.db"
+            else:
+                self.db_path = str(Path("data/liquid_zimbabwe.db"))
+        else:
+            self.db_path = db_path
         self.logger = logging.getLogger(__name__)
         
         # KPI Configuration with user-friendly names and technical details

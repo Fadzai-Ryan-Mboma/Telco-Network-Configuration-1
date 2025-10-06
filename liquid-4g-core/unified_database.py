@@ -15,15 +15,18 @@ class UnifiedDatabaseManager:
     """Unified database manager for all LZ 4G platform data"""
     
     def __init__(self, base_path: str = None):
+        import os
+        from pathlib import Path
         if base_path is None:
-            self.base_path = Path(__file__).parent.parent / "data"
+            if os.path.exists("/.dockerenv") or os.environ.get("LZ_DOCKER", "") == "1":
+                self.base_path = Path("/app/data")
+            else:
+                self.base_path = Path(__file__).parent.parent / "data"
         else:
             self.base_path = Path(base_path)
-        
         self.base_path.mkdir(exist_ok=True)
         self.main_db = self.base_path / "lz_platform.db"
         self.logger = logging.getLogger(__name__)
-        
         # Initialize unified database
         self._initialize_unified_database()
         self._populate_sample_data()

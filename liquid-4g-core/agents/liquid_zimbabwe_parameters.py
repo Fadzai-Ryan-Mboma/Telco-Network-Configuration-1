@@ -11,8 +11,16 @@ import sqlite3
 class LiquidZimbabweParameterManager:
     """Manages the 5 core network parameters for Liquid Zimbabwe"""
     
-    def __init__(self, db_path: str):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        import os
+        from pathlib import Path
+        if db_path is None:
+            if os.path.exists("/.dockerenv") or os.environ.get("LZ_DOCKER", "") == "1":
+                self.db_path = "/app/data/live_network.db"
+            else:
+                self.db_path = str(Path("data/live_network.db"))
+        else:
+            self.db_path = db_path
         self.logger = logging.getLogger(__name__)
         
         # Parameter configuration based on Configurations.txt

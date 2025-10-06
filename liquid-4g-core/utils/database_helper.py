@@ -16,9 +16,13 @@ class LZDatabaseHelper:
     
     def __init__(self, db_path: str = None):
         if db_path is None:
-            # Default path relative to project root
-            project_root = Path(__file__).parent.parent.parent
-            self.db_path = str(project_root / "data" / "live_network.db")
+            # Detect if running in Docker/container by checking for /.dockerenv or environment variable
+            import os
+            if os.path.exists("/.dockerenv") or os.environ.get("LZ_DOCKER", "") == "1":
+                self.db_path = "/app/data/live_network.db"
+            else:
+                project_root = Path(__file__).parent.parent.parent
+                self.db_path = str(project_root / "data" / "live_network.db")
         else:
             self.db_path = db_path
     

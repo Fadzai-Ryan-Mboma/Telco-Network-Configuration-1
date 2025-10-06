@@ -16,6 +16,7 @@ services:
       - LZ_API_PASSWORD=#Pass123#
       - LZ_API_SSL_VERIFY=false
       - LOG_LEVEL=INFO
+      - LZ_DOCKER=1
     
     # Load environment from .env file
     env_file:

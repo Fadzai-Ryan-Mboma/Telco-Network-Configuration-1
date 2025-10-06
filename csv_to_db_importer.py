@@ -273,10 +273,18 @@ Examples:
         help='Path to CSV file (default: data/historical_data.csv)'
     )
     
+    def get_env_aware_db_path(default_local_path):
+        import os
+        from pathlib import Path
+        if os.path.exists("/.dockerenv") or os.environ.get("LZ_DOCKER", "") == "1":
+            return "/app/data/liquid_zimbabwe.db"
+        else:
+            return str(Path(default_local_path))
+
     parser.add_argument(
         '--db-path',
-        default='data/liquid_zimbabwe.db',
-        help='Path to database file (default: data/liquid_zimbabwe.db)'
+        default=get_env_aware_db_path('data/liquid_zimbabwe.db'),
+        help='Path to database file (default: data/liquid_zimbabwe.db, auto-detects Docker)'
     )
     
     parser.add_argument(
