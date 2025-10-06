@@ -277,22 +277,22 @@ def query_live_parameter(site_name, parameter_type, mml_command):
         import sys
         from pathlib import Path
         sys.path.insert(0, str(Path(__file__).parent.parent))
-        
+
         from agents.huawei_api_client import HuaweiAPIClient
-        
+
         # Set up environment for API client
         os.environ['HUAWEI_API_URL'] = os.getenv('LZ_API_URL', '')
         os.environ['HUAWEI_USERNAME'] = os.getenv('LZ_API_USERNAME', '')
         os.environ['HUAWEI_PASSWORD'] = os.getenv('LZ_API_PASSWORD', '')
-        
+
         client = HuaweiAPIClient()
-        
+
         if not client.authenticate():
             return {"error": "Failed to authenticate with API", "status": "error"}
-        
+
         # Execute the MML command
-        result = client.execute_mml_command(mml_command, site_name)
-        
+        result = client.execute_mml_command(mml_command, [site_name])
+
         if result and "error" not in result:
             return {
                 "status": "success", 
@@ -309,7 +309,7 @@ def query_live_parameter(site_name, parameter_type, mml_command):
                 "parameter": parameter_type,
                 "site": site_name
             }
-            
+
     except Exception as e:
         logger.error(f"Parameter query failed: {e}")
         return {
