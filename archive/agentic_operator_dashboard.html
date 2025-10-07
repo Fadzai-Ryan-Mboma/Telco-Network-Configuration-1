@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telco AI Agentic Workflow - NVIDIA Blueprint</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #333;
+    }
+    .header { 
+      background: rgba(255,255,255,0.95); 
+      backdrop-filter: blur(10px);
+      padding: 1.5em 2em; 
+      box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+      border-bottom: 3px solid #00d4aa;
+    }
+    .header h1 { 
+      color: #2c3e50; 
+      font-size: 2.2em; 
+      font-weight: 300;
+      margin-bottom: 0.5em;
+    }
+    .subtitle { 
+      color: #7f8c8d; 
+      font-size: 1.1em; 
+      margin-bottom: 1em;
+    }
+    .status-badges { 
+      display: flex; 
+      gap: 1em; 
+      flex-wrap: wrap;
+    }
+    .badge { 
+      padding: 0.6em 1.2em; 
+      border-radius: 25px; 
+      font-size: 0.9em; 
+      font-weight: 600;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .nvidia-green { background: linear-gradient(45deg, #76b900, #4caf50); color: white; }
+    .ai-blue { background: linear-gradient(45deg, #2196F3, #03DAC6); color: white; }
+    .live-orange { background: linear-gradient(45deg, #ff9800, #ff5722); color: white; }
+    
+    .main-container { 
+      max-width: 1400px; 
+      margin: 2em auto; 
+      padding: 0 2em;
+    }
+    
+    .workflow-section {
+      background: rgba(255,255,255,0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 2em;
+      margin-bottom: 2em;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+    }
+    
+    .section-title {
+      font-size: 1.8em;
+      color: #2c3e50;
+      margin-bottom: 1.5em;
+      font-weight: 300;
+      border-bottom: 2px solid #00d4aa;
+      padding-bottom: 0.5em;
+    }
+    
+    .agent-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 1.5em;
+      margin-bottom: 2em;
+    }
+    
+    .agent-card {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 1.5em;
+      border-radius: 15px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+      transition: transform 0.3s ease;
+    }
+    
+    .agent-card:hover {
+      transform: translateY(-5px);
+    }
+    
+    .agent-header {
+      display: flex;
+      justify-content: between;
+      align-items: center;
+      margin-bottom: 1em;
+    }
+    
+    .agent-name {
+      font-size: 1.3em;
+      font-weight: 600;
+    }
+    
+    .agent-status {
+      padding: 0.3em 0.8em;
+      border-radius: 15px;
+      font-size: 0.8em;
+      font-weight: 600;
+    }
+    
+    .status-active { background: #4caf50; }
+    .status-monitoring { background: #2196F3; }
+    .status-ready { background: #ff9800; }
+    
+    .workflow-steps {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 2em 0;
+      padding: 1.5em;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+      border-radius: 15px;
+      color: white;
+    }
+    
+    .step {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      min-width: 120px;
+    }
+    
+    .step-number {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      margin-bottom: 0.5em;
+    }
+    
+    .step.active .step-number {
+      background: #00d4aa;
+      box-shadow: 0 0 20px rgba(0,212,170,0.5);
+    }
+    
+    .arrow {
+      font-size: 1.5em;
+      color: rgba(255,255,255,0.7);
+    }
+    
+    .controls-panel {
+      display: flex;
+      gap: 1em;
+      margin: 2em 0;
+      flex-wrap: wrap;
+    }
+    
+    .btn {
+      padding: 0.8em 2em;
+      border: none;
+      border-radius: 25px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-size: 1em;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(45deg, #667eea, #764ba2);
+      color: white;
+    }
+    
+    .btn-success {
+      background: linear-gradient(45deg, #4caf50, #45a049);
+      color: white;
+    }
+    
+    .btn-warning {
+      background: linear-gradient(45deg, #ff9800, #f57c00);
+      color: white;
+    }
+    
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    }
+    
+    .kpi-dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.5em;
+      margin: 2em 0;
+    }
+    
+    .kpi-card {
+      background: white;
+      padding: 1.5em;
+      border-radius: 15px;
+      box-shadow: 0 3px 15px rgba(0,0,0,0.1);
+      border-left: 4px solid #00d4aa;
+    }
+    
+    .kpi-value {
+      font-size: 2em;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+    
+    .kpi-label {
+      color: #7f8c8d;
+      font-size: 0.9em;
+      margin-top: 0.5em;
+    }
+    
+    .langgraph-flow {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      padding: 2em;
+      border-radius: 15px;
+      margin: 2em 0;
+    }
+    
+    .agent-description {
+      margin: 1em 0;
+      line-height: 1.6;
+    }
+    
+    .nvidia-branding {
+      text-align: center;
+      margin: 2em 0;
+      color: #76b900;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🤖 Agentic Operator</h1>
+    <span class="badge ok">Advanced Mode</span>
+    <span class="badge ok">LangChain: OK</span>
+    <span class="badge ok">LangGraph: OK</span>
+    <span class="badge ok">NVIDIA AI: OK</span>
+  </header>
+  <div class="container">
+    <h2>Agent Status Dashboard</h2>
+    <table>
+      <tr>
+        <th>Agent Name</th>
+        <th>Status</th>
+        <th>Last Action</th>
+        <th>Details</th>
+      </tr>
+      <tr>
+        <td>Monitoring Agent</td>
+        <td class="status-active">Active</td>
+        <td>Checked KPIs</td>
+        <td><a href="#">View</a></td>
+      </tr>
+      <tr>
+        <td>KPI Analytics Agent</td>
+        <td class="status-idle">Idle</td>
+        <td>Anomaly detected</td>
+        <td><a href="#">View</a></td>
+      </tr>
+      <tr>
+        <td>Configuration Agent</td>
+        <td class="status-active">Ready</td>
+        <td>Suggested change</td>
+        <td><a href="#">View</a></td>
+      </tr>
+      <tr>
+        <td>MML Command Agent</td>
+        <td class="status-active">Ready</td>
+        <td>Executed command</td>
+        <td><a href="#">View</a></td>
+      </tr>
+      <tr>
+        <td>Validation Agent</td>
+        <td class="status-active">Ready</td>
+        <td>Rollback triggered</td>
+        <td><a href="#">View</a></td>
+      </tr>
+      <tr>
+        <td>Live Network Connector</td>
+        <td class="status-active">Ready</td>
+        <td>API healthy</td>
+        <td><a href="#">View</a></td>
+      </tr>
+    </table>
+
+    <h2>Workflow Orchestration</h2>
+    <div class="workflow">
+      <div class="step active">Network Connector</div>
+      <div class="step">Monitoring</div>
+      <div class="step">Analytics</div>
+      <div class="step">Configuration</div>
+      <div class="step">Validation</div>
+      <div class="step">Command</div>
+    </div>
+    <div class="controls">
+      <button>Start Workflow</button>
+      <button>Pause</button>
+      <button>Reset</button>
+      <button>Switch Mode</button>
+    </div>
+
+    <h2>Interactive Agent Actions</h2>
+    <div class="panel">
+      <strong>Monitoring Controls:</strong> Set KPI thresholds, intervals, alert preferences<br>
+      <strong>Analytics Panel:</strong> View correlation charts, anomaly logs, trend predictions<br>
+      <strong>Configuration Panel:</strong> Review parameter suggestions, see reasoning, approve/override<br>
+      <strong>Command Panel:</strong> Preview MML commands, confirm execution, view impact assessment<br>
+      <strong>Validation Panel:</strong> Set validation period, view rollback status, validation results<br>
+      <strong>Network Connector:</strong> API health, session status, network element list
+    </div>
+
+    <h2>Results & Recommendations</h2>
+    <div class="card">
+      <strong>KPI Trends:</strong> [Chart Placeholder]
+    </div>
+    <div class="card">
+      <strong>Optimization Suggestions:</strong> [Table Placeholder]
+    </div>
+    <div class="card">
+      <strong>Validation Outcomes:</strong> [Summary Placeholder]
+    </div>
+    <div class="card">
+      <strong>Explainable Reasoning:</strong> “Why was this change suggested?” <a href="#">Show details</a>
+    </div>
+    <div class="card">
+      <strong>Historical Data Drilldown:</strong> <a href="#">View previous actions/decisions</a>
+    </div>
+
+    <h2>Alerts & Notifications</h2>
+    <div class="alert">Anomaly detected in KPI X</div>
+    <div class="alert">Rollback performed</div>
+    <div class="alert">API connectivity lost</div>
+
+    <h2>Configuration & Customization</h2>
+    <div class="settings">
+      <strong>Settings:</strong> Adjust agent parameters, save/load profiles, set alert preferences
+    </div>
+
+    <h2>Architecture Visualization</h2>
+    <div class="diagram">[System Architecture Diagram Placeholder]</div>
+
+    <div class="help">
+      <strong>Quick Tips:</strong> What does the Monitoring Agent do?<br>
+      <a href="#">User Guide</a> | <a href="#">Agent Descriptions</a> | <a href="#">Troubleshooting</a>
+    </div>
+  </div>
+</body>
+</html>

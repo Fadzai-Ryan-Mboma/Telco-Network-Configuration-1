@@ -1,5 +1,5 @@
-# Liquid Zimbabwe 4G Network Optimizer - Phase 2 Dependencies
-# Live Network Connection Testing with Huawei iMaster MAE API
+# Liquid Zimbabwe 4G Network Optimizer - Clean Production Requirements
+# Fixed dependency conflicts and optimized for Docker builds
 
 # Core AI & Agent Framework
 langchain==0.3.25
@@ -8,10 +8,10 @@ langchain-core==0.3.58
 langchain-nvidia-ai-endpoints==0.3.10
 langgraph==0.4.1
 
-# Network Integration & API Communication - Fixed aiohttp and httpx conflicts
+# Network Integration & API Communication - Fixed aiohttp conflict
 requests==2.31.0
 urllib3==2.0.4
-httpx>=0.25.2
+httpx==0.25.0
 aiohttp>=3.9.1
 websockets==12.0
 
