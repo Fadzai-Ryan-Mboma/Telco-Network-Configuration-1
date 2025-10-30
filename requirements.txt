@@ -1,0 +1,56 @@
+# Liquid Zimbabwe 4G Network Optimizer - Dependencies
+# Python >=3.10,<3.14
+
+# ====================
+# LLM & Agent Framework
+# ====================
+langgraph>=0.2.0
+langchain-core>=0.2.0
+langchain-nvidia-ai-endpoints>=0.1.0
+
+# ====================
+# UI Framework
+# ====================
+streamlit>=1.28.0
+
+# ====================
+# Data Processing
+# ====================
+pandas>=2.0.0
+numpy>=1.24.0
+
+# ====================
+# Data Validation
+# ====================
+pydantic>=2.0.0
+
+# ====================
+# API & Network
+# ====================
+requests>=2.31.0
+urllib3>=2.0.0
+
+# ====================
+# Configuration
+# ====================
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# ====================
+# Testing
+# ====================
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+
+# ====================
+# Utilities
+# ====================
+python-dateutil>=2.8.0
+
+# ====================
+# Development (Optional)
+# ====================
+# black>=23.0.0  # Code formatting
+# flake8>=6.0.0  # Linting
+# mypy>=1.0.0    # Type checking
