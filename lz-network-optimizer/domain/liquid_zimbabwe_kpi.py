@@ -567,3 +567,14 @@ class LiquidZimbabweKPIManager:
         except Exception as e:
             self.logger.error(f"Enhanced query failed: {e}")
             return pd.DataFrame()
+
+# ============================================================================
+# MODULE-LEVEL EXPORTS FOR COMPATIBILITY
+# ============================================================================
+
+# Create module-level KPIS dictionary for easy import
+_kpi_manager = LiquidZimbabweKPIManager()
+KPIS = _kpi_manager.kpi_config
+
+# Export for convenience
+__all__ = ['LiquidZimbabweKPIManager', 'KPIS']

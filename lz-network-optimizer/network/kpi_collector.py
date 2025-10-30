@@ -15,7 +15,10 @@ from typing import Dict, List, Optional, Tuple
 import os
 import yaml
 
-from huawei_api_client import HuaweiAPIClient
+try:
+    from network.huawei_api_client import HuaweiAPIClient
+except ImportError:
+    from huawei_api_client import HuaweiAPIClient
 
 # Setup logging
 logger = logging.getLogger(__name__)

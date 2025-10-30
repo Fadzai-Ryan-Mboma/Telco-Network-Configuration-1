@@ -786,3 +786,14 @@ class LiquidZimbabweParameterManager:
         Used by legacy agent files for backward compatibility
         """
         return self.parameter_config
+
+# ============================================================================
+# MODULE-LEVEL EXPORTS FOR COMPATIBILITY
+# ============================================================================
+
+# Create module-level PARAMETERS dictionary for easy import
+_param_manager = LiquidZimbabweParameterManager()
+PARAMETERS = _param_manager.parameter_config
+
+# Export for convenience
+__all__ = ['LiquidZimbabweParameterManager', 'PARAMETERS']
