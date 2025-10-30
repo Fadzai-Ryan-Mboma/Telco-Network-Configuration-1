@@ -4,6 +4,9 @@
 *.log
 *.tmp
 
+# Credentials (DO NOT COMMIT)
+CREDENTIALS_SECURE.txt
+
 # Python
 __pycache__/
 *.py[cod]

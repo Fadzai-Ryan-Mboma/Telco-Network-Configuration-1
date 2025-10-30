@@ -1,0 +1,223 @@
+# Task-Specific Prompts for Agentic Workflow
+
+# Stage 1: Monitoring
+monitor_kpis: |
+  Analyze the following KPI data for network cell {cell_id}:
+
+  KPI Measurements (last 24 hours):
+  {kpi_data}
+
+  KPI Thresholds:
+  {kpi_thresholds}
+
+  Tasks:
+  1. Identify KPIs that are below thresholds or showing degradation trends
+  2. Calculate the severity of each issue (critical/warning/info)
+  3. Prioritize issues based on business impact
+  4. Recommend which cells need immediate optimization
+
+  Respond in JSON format:
+  {{
+    "issues": [
+      {{
+        "kpi_key": "network_access_success",
+        "current_value": 92.5,
+        "threshold_value": 95.0,
+        "severity": "critical",
+        "trend": "decreasing",
+        "priority": "high"
+      }}
+    ],
+    "cells_requiring_attention": ["CELL_001", "CELL_002"],
+    "summary": "Brief summary of findings"
+  }}
+
+# Stage 2: Analysis
+analyze_performance: |
+  Perform root cause analysis for the following cell with poor performance:
+
+  Cell Information:
+  {cell_info}
+
+  KPI Data (last 7 days):
+  {kpi_time_series}
+
+  Current Parameters:
+  {current_parameters}
+
+  Parameter Definitions:
+  {parameter_definitions}
+
+  Tasks:
+  1. Analyze KPI trends and identify root causes
+  2. Correlate KPIs with radio parameters
+  3. Suggest specific parameter adjustments
+  4. Estimate expected KPI improvements
+  5. Assess risk level of each adjustment
+
+  Respond in JSON format:
+  {{
+    "root_causes": [
+      {{
+        "issue": "High drop rate",
+        "likely_cause": "Insufficient handover margin",
+        "supporting_data": "Drop rate increased from 1.5% to 3.2% over 3 days"
+      }}
+    ],
+    "recommended_changes": [
+      {{
+        "param_key": "handover_margin",
+        "current_value": 3,
+        "recommended_value": 5,
+        "expected_improvement": "Drop rate should decrease to <2%",
+        "risk_level": "low",
+        "justification": "Increasing handover margin improves mobility"
+      }}
+    ],
+    "summary": "Root cause analysis summary"
+  }}
+
+# Stage 3: Configuration
+generate_mml_commands: |
+  Generate Huawei MML commands for the following approved parameter changes:
+
+  Cell: {cell_id}
+
+  Approved Changes:
+  {approved_changes}
+
+  Parameter Definitions (with MML templates):
+  {parameter_definitions}
+
+  Tasks:
+  1. Generate MML query commands to capture current state (pre-change snapshot)
+  2. Generate MML modify commands for each parameter change
+  3. Generate MML query commands to verify changes (post-change snapshot)
+  4. Generate rollback commands if changes need to be reverted
+
+  Respond in JSON format:
+  {{
+    "pre_change_commands": [
+      "LST HANDOVERGROUP: LOCALCELLID=0;"
+    ],
+    "modification_commands": [
+      "MOD HANDOVERGROUP: LOCALCELLID=0, HANDOVERMARGIN=5;"
+    ],
+    "verification_commands": [
+      "LST HANDOVERGROUP: LOCALCELLID=0;"
+    ],
+    "rollback_commands": [
+      "MOD HANDOVERGROUP: LOCALCELLID=0, HANDOVERMARGIN=3;"
+    ],
+    "execution_notes": "Notes for execution"
+  }}
+
+# Stage 4: Validation
+validate_changes: |
+  Validate the following proposed configuration changes before execution:
+
+  Cell: {cell_id}
+  Site: {site_id}
+
+  Proposed Changes:
+  {proposed_changes}
+
+  Parameter Definitions:
+  {parameter_definitions}
+
+  Current Network Status:
+  {network_status}
+
+  Tasks:
+  1. Validate each parameter value is within allowed range
+  2. Check for parameter dependencies and conflicts
+  3. Assess impact on network performance
+  4. Verify compliance with network policies
+  5. Determine if changes should be approved
+
+  Respond in JSON format:
+  {{
+    "validation_results": [
+      {{
+        "param_key": "handover_margin",
+        "proposed_value": 5,
+        "is_valid": true,
+        "within_range": true,
+        "no_conflicts": true,
+        "validation_notes": "Value is within range [0-10]"
+      }}
+    ],
+    "overall_assessment": "approved",
+    "risk_level": "low",
+    "approval_decision": "approved",
+    "conditions": ["Execute during low traffic window", "Monitor for 2 hours post-change"],
+    "rejection_reasons": []
+  }}
+
+# Stage 5: Execution
+execute_changes: |
+  Execute the following validated configuration changes:
+
+  Cell: {cell_id}
+
+  Validated Changes:
+  {validated_changes}
+
+  MML Commands:
+  {mml_commands}
+
+  Execution Plan:
+  {execution_plan}
+
+  Tasks:
+  1. Execute pre-change snapshot commands
+  2. Execute modification commands one at a time
+  3. Monitor KPIs in real-time after each change
+  4. Execute verification commands
+  5. Document execution results
+  6. Rollback if any issues detected
+
+  Respond in JSON format:
+  {{
+    "execution_status": "completed",
+    "commands_executed": [
+      {{
+        "command": "MOD HANDOVERGROUP: LOCALCELLID=0, HANDOVERMARGIN=5;",
+        "status": "success",
+        "timestamp": "2025-01-15T10:30:00Z"
+      }}
+    ],
+    "rollback_required": false,
+    "post_change_kpis": {{}},
+    "execution_notes": "All changes applied successfully"
+  }}
+
+# General optimization request
+optimize_cell: |
+  Optimize the following network cell based on recent performance data:
+
+  Cell: {cell_id}
+  Site: {site_id}
+
+  Recent KPIs:
+  {kpi_summary}
+
+  Current Parameters:
+  {current_parameters}
+
+  Tasks:
+  1. Identify optimization opportunities
+  2. Suggest parameter adjustments
+  3. Prioritize changes by impact
+  4. Provide implementation roadmap
+
+  Respond in JSON format:
+  {{
+    "optimization_opportunities": [],
+    "recommended_changes": [],
+    "implementation_plan": {{
+      "phase_1": "High priority changes",
+      "phase_2": "Medium priority changes"
+    }},
+    "expected_improvements": "Overall improvement summary"
+  }}
