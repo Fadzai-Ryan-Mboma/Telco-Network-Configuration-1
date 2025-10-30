@@ -1,0 +1,78 @@
+services:
+  liquid-4g-optimizer:
+    build:
+      context: ..
+      dockerfile: lz-container/Dockerfile.lz
+    container_name: liquid-4g-network
+    restart: unless-stopped
+    
+    # Environment variables for LZ system
+    environment:
+      - LZ_ENV=production
+      - PYTHONUNBUFFERED=1
+      - TZ=Africa/Harare
+      - LZ_API_URL=https://41.174.191.214:31127
+      - LZ_API_USERNAME=cassava.ai
+      - LZ_API_PASSWORD=#Pass123#
+      - LZ_API_SSL_VERIFY=false
+      - LOG_LEVEL=INFO
+      - LZ_DOCKER=1
+    
+    # Load environment from .env file
+    env_file:
+      - ../.env
+    
+    # Port mapping for monitoring interface
+    ports:
+      - "8501:8501"  # Streamlit monitoring interface
+      - "8502:8502"  # API endpoint (if needed)
+    
+    # Volume mounts for persistent data
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+      - ../config-lz.yaml:/app/config-lz.yaml:ro
+    
+    # Network configuration
+    networks:
+      - liquid-4g-net
+    
+    # Resource limits (optimized for LZ-only system)
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    
+    # Health check (commented out for testing)
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8501/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 60s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Dependencies (none for LZ-only system)
+    depends_on: []
+
+networks:
+  liquid-4g-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Optional: Add volume for persistent data if needed
+volumes:
+  lz-data:
+    driver: local

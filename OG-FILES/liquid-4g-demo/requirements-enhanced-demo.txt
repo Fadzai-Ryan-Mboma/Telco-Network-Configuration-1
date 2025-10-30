@@ -1,0 +1,51 @@
+# Enhanced Demo Requirements
+# ==========================
+# Core requirements for the 6-Stage Agentic Network Optimization Demo
+
+# Core Python packages (required)
+asyncio>=3.4.3  # For async/await support
+json5>=0.9.6    # Enhanced JSON support
+pathlib>=1.0.1  # Path manipulation
+logging>=0.4.9.6  # Logging support
+datetime>=4.3   # Date/time handling
+dataclasses>=0.8  # Dataclass support
+typing>=3.7.4   # Type hints
+
+# Optional packages (demo functionality enhanced when available)
+# UI Framework
+streamlit>=1.28.0  # Interactive web interface
+plotly>=5.15.0     # Interactive visualizations
+pandas>=1.5.0      # Data manipulation
+numpy>=1.24.0      # Numerical computing
+
+# Network and API
+requests>=2.31.0   # HTTP requests for API connectivity
+aiohttp>=3.8.0     # Async HTTP requests
+urllib3>=1.26.0    # URL handling
+
+# Database (if available)
+sqlite3>=3.40.0    # Local database support
+
+# Development and Testing
+pytest>=7.4.0      # Testing framework
+pytest-asyncio>=0.21.0  # Async testing
+
+# Huawei iMaster MAE SDK (if available)
+# Note: This is proprietary and may not be publicly available
+# The demo includes fallback simulation when not available
+
+# Installation Notes:
+# - The demo is designed to work with minimal dependencies
+# - When optional packages are not available, the demo falls back to:
+#   * Console interface (instead of Streamlit UI)
+#   * Simulated data (instead of live API)
+#   * Basic logging (instead of advanced monitoring)
+# 
+# Basic installation:
+# pip install asyncio json5 pathlib
+#
+# Enhanced installation (recommended):
+# pip install streamlit plotly pandas numpy requests aiohttp
+#
+# Development installation:
+# pip install -r requirements-enhanced-demo.txt

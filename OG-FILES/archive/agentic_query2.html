@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telco AI Agentic Query Interface</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background: linear-gradient(135deg, #00d4aa 0%, #2196F3 100%);
+      min-height: 100vh;
+      color: #2c3e50;
+    }
+    
+    .header { 
+      background: rgba(255,255,255,0.97); 
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 1.5em 2em; 
+      box-shadow: 0 2px 20px rgba(0,212,170,0.08);
+      border-bottom: 4px solid #00d4aa;
+      border-radius: 0 0 24px 24px;
+    }
+    
+    .header h1 { 
+      color: #2196F3; 
+      font-size: 2.2em; 
+      font-weight: 400;
+      margin-bottom: 0.5em;
+      letter-spacing: 0.02em;
+    }
+    
+    .subtitle { 
+      color: #00bfae; 
+      font-size: 1.1em; 
+      margin-bottom: 1em;
+      font-weight: 500;
+    }
+    
+    .main-container { 
+      max-width: 1200px; 
+      margin: 2em auto; 
+      padding: 0 2em;
+    }
+    
+    .query-section {
+      background: rgba(255,255,255,0.98);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 24px;
+      padding: 2em;
+      margin-bottom: 2em;
+      box-shadow: 0 8px 32px rgba(0,212,170,0.08);
+      border: 2px solid #00d4aa;
+    }
+    
+    .section-title {
+      font-size: 1.7em;
+      color: #2196F3;
+      margin-bottom: 1.5em;
+      font-weight: 400;
+      border-bottom: 2px solid #00d4aa;
+      padding-bottom: 0.5em;
+      letter-spacing: 0.01em;
+    }
+    
+    .input-group {
+      margin-bottom: 2em;
+    }
+    
+    .input-label {
+      display: block;
+      margin-bottom: 0.8em;
+      font-weight: 600;
+      color: #00bfae;
+      font-size: 1.1em;
+    }
+    
+    .query-input {
+      width: 100%;
+      min-height: 120px;
+      padding: 1em;
+      border: 2px solid #00d4aa;
+      border-radius: 12px;
+      font-size: 1em;
+      font-family: inherit;
+      resize: vertical;
+      transition: all 0.3s ease;
+      background: rgba(240,255,255,0.7);
+    }
+    
+    .query-input:focus {
+      outline: none;
+      border-color: #2196F3;
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.12);
+    }
+    
+    .quick-queries {
+      margin-top: 1em;
+    }
+    
+    .quick-query-btn {
+      display: inline-block;
+      margin: 0.3em 0.5em 0.3em 0;
+      padding: 0.5em 1em;
+      background: linear-gradient(45deg, #00d4aa, #2196F3);
+      color: white;
+      border: none;
+      border-radius: 20px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: all 0.3s ease;
+      font-weight: 500;
+    }
+    
+    .quick-query-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,212,170,0.18);
+    }
+    
+    .submit-btn {
+      background: linear-gradient(45deg, #00d4aa, #2196F3);
+      color: white;
+      border: none;
+      padding: 1em 3em;
+      border-radius: 25px;
+      font-size: 1.1em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1em;
+      box-shadow: 0 2px 8px rgba(0,212,170,0.08);
+    }
+    
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(33,150,243,0.18);
+    }
+    
+    .submit-btn:disabled {
+      background: #b2dfdb;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .output-tabs {
+      background: rgba(255,255,255,0.98);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,212,170,0.08);
+      overflow: hidden;
+      border: 2px solid #00d4aa;
+    }
+    
+    .tab-headers {
+      display: flex;
+      background: linear-gradient(90deg, #00d4aa, #2196F3);
+      border-radius: 24px 24px 0 0;
+    }
+    
+    .tab-header {
+      flex: 1;
+      padding: 1.2em;
+      text-align: center;
+      color: white;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+      letter-spacing: 0.01em;
+    }
+    
+    .tab-header.active {
+      background: rgba(255,255,255,0.18);
+      color: #00d4aa;
+      font-weight: 700;
+    }
+    
+    .tab-header:hover {
+      background: rgba(255,255,255,0.12);
+    }
+    
+    .tab-content {
+      padding: 2em;
+      min-height: 300px;
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .agent-response {
+      background: #e0f7fa;
+      border-left: 4px solid #00d4aa;
+      padding: 1.5em;
+      border-radius: 0 14px 14px 0;
+      margin-bottom: 1.5em;
+      box-shadow: 0 2px 8px rgba(0,212,170,0.08);
+    }
+    
+    .agent-name {
+      font-weight: 600;
+      color: #2196F3;
+      margin-bottom: 0.5em;
+      font-size: 1.1em;
+    }
+    
+    .agent-message {
+      line-height: 1.6;
+      color: #2c3e50;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 0.5em;
+    }
+    
+    .status-active { background: #4caf50; }
+    .status-processing { background: #ff9800; animation: pulse 1.5s infinite; }
+    .status-complete { background: #2196F3; }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    .workflow-progress {
+      background: linear-gradient(90deg, #00d4aa, #2196F3);
+      color: white;
+      padding: 1.5em;
+      border-radius: 14px;
+      margin-bottom: 1.5em;
+      box-shadow: 0 2px 8px rgba(0,212,170,0.08);
+    }
+    
+    .progress-steps {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .progress-step {
+      text-align: center;
+      flex: 1;
+    }
+    
+    .step-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 0.5em;
+      font-size: 0.8em;
+      font-weight: 600;
+    }
+    
+    .step-circle.active {
+      background: #00d4aa;
+      box-shadow: 0 0 15px rgba(0,212,170,0.5);
+      color: white;
+    }
+    
+    .step-circle.complete {
+      background: #2196F3;
+      color: white;
+    }
+    
+    .kpi-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1em;
+      margin-top: 1.5em;
+    }
+    
+    .metric-card {
+      background: #e0f7fa;
+      padding: 1em;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,212,170,0.08);
+      text-align: center;
+      border: 2px solid #00d4aa;
+    }
+    
+    .metric-value {
+      font-size: 1.7em;
+      font-weight: 600;
+      color: #2196F3;
+    }
+    
+    .metric-label {
+      color: #00bfae;
+      font-size: 0.95em;
+      margin-top: 0.5em;
+      font-weight: 500;
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255,255,255,.3);
+      border-radius: 50%;
+      border-top-color: #fff;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 0.5em;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📡 Liquid Zimbabwe 4G Network Optimizer</h1>
+    <div class="subtitle">Network Monitoring & Real-time Parameter Query Dashboard</div>
+  </div>
+
+  <div class="main-container">
+    <!-- Query Input Section -->
+    <div class="query-section">
+  <h2 class="section-title">� Real-time Parameter Query</h2>
+      
+      <div class="input-group">
+  <label class="input-label">Enter your network parameter or optimization query:</label>
+        <textarea 
+          class="query-input" 
+          id="queryInput"
+          placeholder="Ask about network performance, KPI analysis, parameter optimization, or request specific actions...&#10;&#10;Example: 'Analyze the current network performance and suggest parameter optimizations for improving throughput'"
+        ></textarea>
+      </div>
+      
+      <div class="quick-queries">
+        <strong>Quick Queries:</strong><br>
+        <button class="quick-query-btn" onclick="setQuery('Query Reference Signal Power for all live sites')">
+          📡 Reference Signal Power
+        </button>
+        <button class="quick-query-btn" onclick="setQuery('Analyze current network KPIs and identify optimization opportunities')">
+          📊 Analyze KPIs
+        </button>
+        <button class="quick-query-btn" onclick="setQuery('Suggest parameter changes to improve network throughput')">
+          ⚙️ Optimize Parameters
+        </button>
+        <button class="quick-query-btn" onclick="setQuery('Monitor network health and detect anomalies')">
+          🔍 Monitor Network
+        </button>
+      </div>
+      
+      <button class="submit-btn" onclick="submitQuery()" id="submitBtn">
+        🚀 Execute Query
+      </button>
+    </div>
+
+    <!-- Output Tabs Section -->
+    <div class="output-tabs">
+      <div class="tab-headers">
+        <div class="tab-header active" onclick="switchTab('workflow')">
+          🔄 Workflow
+        </div>
+        <div class="tab-header" onclick="switchTab('responses')">
+          🤖 Agent Responses
+        </div>
+        <div class="tab-header" onclick="switchTab('kpis')">
+          📈 KPIs
+        </div>
+        <div class="tab-header" onclick="switchTab('recommendations')">
+          💡 Recommendations
+        </div>
+      </div>
+      
+      <!-- Workflow Tab -->
+      <div class="tab-content active" id="workflow-tab">
+  <h3>Agentic Orchestration Workflow</h3>
+        <div class="workflow-progress">
+          <div class="progress-steps">
+            <div class="progress-step">
+              <div class="step-circle active">1</div>
+              <div>Network Connector</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">2</div>
+              <div>Monitoring</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">3</div>
+              <div>KPI Analytics</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">4</div>
+              <div>Configuration</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">5</div>
+              <div>Validation</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">6</div>
+              <div>Execution</div>
+            </div>
+          </div>
+        </div>
+  <p><strong>Status:</strong> <span class="status-indicator status-active"></span>Network Connector Agent is checking API connectivity...</p>
+  <p><em>Submit a query above to start the agentic workflow.</em></p>
+      </div>
+      
+      <!-- Responses Tab -->
+      <div class="tab-content" id="responses-tab">
+  <h3>Agent Responses & Analysis</h3>
+        <div class="agent-response">
+          <div class="agent-name">📊 Monitoring Agent</div>
+          <div class="agent-message">Ready to monitor network KPIs and detect performance degradation. Waiting for user query...</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">🧠 KPI Analytics Agent</div>
+          <div class="agent-message">AI-powered analytics engine is ready to perform correlation analysis and trend prediction.</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">⚙️ Configuration Agent</div>
+          <div class="agent-message">Standing by to analyze parameter interdependencies and suggest optimizations.</div>
+        </div>
+      </div>
+      
+      <!-- KPIs Tab -->
+      <div class="tab-content" id="kpis-tab">
+  <h3>Live Network KPIs</h3>
+        <div class="kpi-metrics">
+          <div class="metric-card">
+            <div class="metric-value">94.2%</div>
+            <div class="metric-label">Network Availability</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">87.5 Mbps</div>
+            <div class="metric-label">Average Throughput</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">12.3 ms</div>
+            <div class="metric-label">Latency</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">0.8%</div>
+            <div class="metric-label">Packet Loss Rate</div>
+          </div>
+        </div>
+  <p style="margin-top: 1.5em;"><em>KPIs update automatically every 30 seconds. Submit queries to get agentic analysis of these metrics.</em></p>
+      </div>
+      
+      <!-- Recommendations Tab -->
+      <div class="tab-content" id="recommendations-tab">
+  <h3>AI Recommendations & Insights</h3>
+        <div class="agent-response">
+          <div class="agent-name">💡 AI Insight</div>
+          <div class="agent-message">
+            <strong>Current Status:</strong> Network is operating within normal parameters. 
+            <br><br>
+            <strong>Optimization Opportunity:</strong> Based on historical analysis, there's a potential 3.2% improvement in weighted average gain through parameter optimization.
+            <br><br>
+            <strong>Recommended Action:</strong> Submit a query for parameter optimization to get specific recommendations.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer style="margin: 2em auto 0; text-align: center; color: #00bfae; font-size: 1em; background: rgba(255,255,255,0.97); border-radius: 0 0 24px 24px; padding: 1em 0; box-shadow: 0 -2px 12px rgba(0,212,170,0.08); border-top: 2px solid #00d4aa;">
+    🕐 Last updated: <span id="footerTime"></span> | 🌍 Liquid Zimbabwe 4G Network | Real-time Parameter Query Ready
+  </footer>
+  <script>
+    document.getElementById('footerTime').textContent = new Date().toLocaleString();
+    function setQuery(query) {
+      document.getElementById('queryInput').value = query;
+    }
+    
+    function switchTab(tabName) {
+      // Hide all tab contents
+      const tabs = document.querySelectorAll('.tab-content');
+      tabs.forEach(tab => tab.classList.remove('active'));
+      
+      // Remove active class from all headers
+      const headers = document.querySelectorAll('.tab-header');
+      headers.forEach(header => header.classList.remove('active'));
+      
+      // Show selected tab
+      document.getElementById(tabName + '-tab').classList.add('active');
+      event.target.classList.add('active');
+    }
+    
+    function submitQuery() {
+      const query = document.getElementById('queryInput').value.trim();
+      if (!query) {
+        alert('Please enter a query first.');
+        return;
+      }
+      
+      // Disable button and show loading
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span>Processing Query...';
+      
+      // Simulate AI processing
+      simulateAgentProcessing(query);
+    }
+    
+    function simulateAgentProcessing(query) {
+      // Switch to workflow tab
+      switchTab('workflow');
+      
+      // Update workflow progress
+      const steps = document.querySelectorAll('.step-circle');
+      let currentStep = 0;
+      
+      const progressInterval = setInterval(() => {
+        if (currentStep < steps.length) {
+          steps[currentStep].classList.add('active');
+          if (currentStep > 0) {
+            steps[currentStep - 1].classList.remove('active');
+            steps[currentStep - 1].classList.add('complete');
+          }
+          currentStep++;
+        } else {
+          clearInterval(progressInterval);
+          // Reset button
+          const btn = document.getElementById('submitBtn');
+          btn.disabled = false;
+          btn.innerHTML = '🚀 Submit Query to AI Agents';
+          
+          // Update responses tab with simulated results
+          updateAgentResponses(query);
+        }
+      }, 1000);
+    }
+    
+    function updateAgentResponses(query) {
+      const responsesTab = document.getElementById('responses-tab');
+      responsesTab.innerHTML = `
+        <h3>Agent Responses & Analysis</h3>
+        <div class="agent-response">
+          <div class="agent-name">📊 Monitoring Agent</div>
+          <div class="agent-message">Query processed: "${query.substring(0, 50)}..." - Current network performance is within acceptable thresholds. Monitoring continuing...</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">🧠 KPI Analytics Agent</div>
+          <div class="agent-message">Correlation analysis complete. Identified 3 potential optimization points. Throughput can be improved by 5.7% with parameter adjustments.</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">⚙️ Configuration Agent</div>
+          <div class="agent-message">Recommendation: Adjust P0_NominalPUSCH from -96 dBm to -94 dBm and increase PDCCH aggregation level to 4. Impact assessment shows positive weighted average gain.</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">✅ Validation Agent</div>
+          <div class="agent-message">Configuration changes validated. Safe to proceed with implementation. Rollback plan prepared in case of performance degradation.</div>
+        </div>
+      `;
+      
+      // Update recommendations
+      const recommendationsTab = document.getElementById('recommendations-tab');
+      recommendationsTab.innerHTML = `
+        <h3>AI Recommendations & Insights</h3>
+        <div class="agent-response">
+          <div class="agent-name">💡 Primary Recommendation</div>
+          <div class="agent-message">
+            <strong>Optimization Target:</strong> Network Throughput
+            <br><br>
+            <strong>Recommended Changes:</strong>
+            <br>• P0_NominalPUSCH: -96 dBm → -94 dBm
+            <br>• PDCCH Aggregation Level: 2 → 4
+            <br><br>
+            <strong>Expected Impact:</strong> +5.7% throughput improvement, +3.2% weighted average gain
+            <br><br>
+            <strong>Risk Assessment:</strong> Low risk - Changes within safe operational parameters
+          </div>
+        </div>
+      `;
+    }
+  </script>
+</body>
+</html>

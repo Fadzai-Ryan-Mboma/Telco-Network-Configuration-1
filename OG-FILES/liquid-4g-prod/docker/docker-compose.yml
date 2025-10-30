@@ -1,0 +1,62 @@
+# Docker Compose for Liquid 4G Network Optimizer
+
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: liquid4g-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENV=production
+      - DATABASE_PATH=/app/data/liquid4g.db
+      - LLM_PROVIDER=openai
+      - HUAWEI_API_URL=${HUAWEI_API_URL}
+    env_file:
+      - .env
+    volumes:
+      - liquid4g-data:/app/data
+    secrets:
+      - huawei_username
+      - huawei_password
+      - openai_api_key
+    command: python -m liquid4g api
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: liquid4g-ui
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    command: streamlit run src/liquid4g/interfaces/ui/app.py --server.port 8501 --server.address 0.0.0.0
+    depends_on:
+      - api
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: liquid4g-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  liquid4g-data:
+  redis-data:
+
+secrets:
+  huawei_username:
+    file: ./secrets/huawei_username.txt
+  huawei_password:
+    file: ./secrets/huawei_password.txt
+  openai_api_key:
+    file: ./secrets/openai_api_key.txt

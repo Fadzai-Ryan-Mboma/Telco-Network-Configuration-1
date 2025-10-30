@@ -1,0 +1,123 @@
+# Rule-Based Optimization Rules
+# Used as fallback when LLM is unavailable
+
+# KPI Threshold Rules
+kpi_thresholds:
+  network_access_success:
+    optimal_min: 95.0
+    critical_threshold: 90.0
+    higher_is_better: true
+
+  drop_rate:
+    optimal_max: 2.0
+    critical_threshold: 3.0
+    higher_is_better: false
+
+  handover_success_rate:
+    optimal_min: 98.0
+    critical_threshold: 95.0
+    higher_is_better: true
+
+  average_rsrp:
+    optimal_min: -95
+    optimal_max: -70
+    critical_threshold: -105
+    higher_is_better: true
+
+# Parameter Optimization Rules
+parameter_rules:
+  # High drop rate → Increase handover margin
+  - condition:
+      kpi: drop_rate
+      operator: greater_than
+      threshold: 2.5
+    action:
+      param_key: handover_margin
+      adjustment: increase
+      delta: 2
+      max_value: 10
+    expected_improvement: "Reduce drop rate by improving handover success"
+    risk_level: low
+
+  # Low accessibility → Increase RACH parameters
+  - condition:
+      kpi: network_access_success
+      operator: less_than
+      threshold: 93.0
+    action:
+      param_key: rach_preambles
+      adjustment: increase
+      delta: 4
+      max_value: 64
+    expected_improvement: "Improve accessibility by increasing RACH capacity"
+    risk_level: medium
+
+  # Poor signal strength → Adjust reference signal power
+  - condition:
+      kpi: average_rsrp
+      operator: less_than
+      threshold: -100
+    action:
+      param_key: reference_signal_power_rs
+      adjustment: increase
+      delta: 20
+      max_value: 500
+    expected_improvement: "Improve coverage by increasing signal power"
+    risk_level: medium
+
+  # Handover failures → Reduce handover delay
+  - condition:
+      kpi: handover_success_rate
+      operator: less_than
+      threshold: 96.0
+    action:
+      param_key: handover_time_to_trigger
+      adjustment: decrease
+      delta: 40
+      min_value: 0
+    expected_improvement: "Improve handover success by reducing delay"
+    risk_level: low
+
+# Severity Classification Rules
+severity_rules:
+  critical:
+    - kpi: network_access_success
+      operator: less_than
+      threshold: 90.0
+    - kpi: drop_rate
+      operator: greater_than
+      threshold: 3.0
+
+  warning:
+    - kpi: network_access_success
+      operator: less_than
+      threshold: 95.0
+    - kpi: drop_rate
+      operator: greater_than
+      threshold: 2.0
+    - kpi: handover_success_rate
+      operator: less_than
+      threshold: 98.0
+
+# Validation Rules
+validation_rules:
+  # Never allow changes during peak hours
+  - rule: no_peak_hour_changes
+    condition:
+      hour_range: [8, 22]
+    action: reject
+    reason: "Changes not allowed during peak hours (8 AM - 10 PM)"
+
+  # High-risk parameters require manual approval
+  - rule: high_risk_approval
+    condition:
+      impact_level: high
+    action: require_approval
+    reason: "High-risk parameters require manual approval"
+
+  # Parameter must be within valid range
+  - rule: valid_range
+    condition:
+      within_range: true
+    action: approve
+    reason: "Parameter value is within valid range"

@@ -1,0 +1,49 @@
+# Liquid Zimbabwe 4G Network Optimizer - Production Container
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for Liquid Zimbabwe integration
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    gfortran \
+    sqlite3 \
+    libopenblas-dev \
+    liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy and install Python dependencies
+COPY liquid-4g-core/requirements-lz.txt requirements.txt
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Copy production application files (clean structure)
+COPY liquid-4g-core/unified_database.py ./
+COPY liquid-4g-core/production_checker.py ./
+COPY liquid-4g-core/agents/ ./agents/
+COPY liquid-4g-core/utils/ ./utils/
+COPY liquid-4g-core/ui/ ./ui/
+COPY liquid-4g-core/network/ ./network/
+COPY liquid-4g-core/data/ ./data/
+
+# Create directories and set permissions
+RUN mkdir -p ./logs ./backups /data && \
+    useradd -m -s /bin/bash lzuser && \
+    chown -R lzuser:lzuser /app /data
+USER lzuser
+
+# Expose port for Streamlit dashboard
+EXPOSE 8501
+
+# Health check for production monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python production_checker.py || exit 1
+
+# Health check for container monitoring (commented out for testing)
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+#     CMD curl -f http://localhost:8501/health || exit 1
+
+# Default command to start LZ system with UI
+CMD ["streamlit", "run", "ui/ui.py", "--server.port", "8501", "--server.address", "0.0.0.0"]

@@ -1,0 +1,25 @@
+# Liquid Zimbabwe 4G Network - Minimal Requirements for Container Testing
+# Core Python packages only
+
+# HTTP and API
+requests>=2.31.0
+urllib3>=2.0.4
+httpx>=0.25.0
+certifi>=2023.11.17
+
+# UI Framework
+streamlit>=1.28.0
+
+# Logging and utilities  
+pyyaml>=6.0
+python-dotenv>=1.0.0
+
+# Basic data handling (no heavy scientific packages for testing)
+# pandas==2.1.3  # Commented out for initial testing
+# numpy>=1.24.0  # Commented out for initial testing
+
+# Security
+cryptography>=41.0.7
+
+# Development and testing
+pytest>=7.4.0

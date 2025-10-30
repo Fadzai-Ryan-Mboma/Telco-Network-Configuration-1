@@ -1,0 +1,27 @@
+[server]
+port = 8501
+address = "0.0.0.0"
+headless = true
+runOnSave = true
+allowRunOnSave = true
+
+[browser]
+gatherUsageStats = false
+serverAddress = "0.0.0.0"
+
+[theme]
+primaryColor = "#001d58"
+backgroundColor = "#00f19c"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#00082f"
+
+[logger]
+level = "info"
+
+[client]
+caching = true
+displayEnabled = true
+
+[global]
+suppressDeprecationWarnings = true
+showWarningOnDirectExecution = false

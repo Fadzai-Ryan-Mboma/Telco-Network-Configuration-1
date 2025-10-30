@@ -1,0 +1,4 @@
+# Minimal requirements for UI testing
+streamlit==1.28.0
+pyyaml==6.0.1
+requests==2.31.0

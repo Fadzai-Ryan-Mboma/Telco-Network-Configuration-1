@@ -1,0 +1,165 @@
+# Liquid Zimbabwe 4G Network Configuration
+# Stripped of all BubbleRAN 5G simulation components
+
+# System Configuration
+system:
+  name: "Liquid Zimbabwe 4G Network Optimizer"
+  version: "2.0.0-lz"
+  environment: "production"
+  timezone: "Africa/Harare"
+  
+# Liquid Zimbabwe Network Configuration
+liquid_zimbabwe:
+  # Network Information
+  network:
+    operator: "Liquid Intelligent Technologies"
+    country: "Zimbabwe"
+    technology: "4G LTE"
+    mcc: "648"  # Zimbabwe MCC
+    mnc: "04"   # Liquid Zimbabwe MNC
+  
+  # Huawei iMaster MAE API Configuration
+  api:
+    base_url: "${LZ_API_URL}"
+    username: "${LZ_API_USERNAME}"
+    password: "${LZ_API_PASSWORD}"
+    timeout: 30
+    retry_attempts: 3
+    retry_delay: 5
+    ssl_verify: true
+    
+  # 4G Network Parameters to Monitor/Optimize
+  parameters:
+    # Radio Access Network Parameters
+    - name: "earfcn"
+      description: "E-UTRA Absolute Radio Frequency Channel Number"
+      mml_command: "DSP CELLALGOSWITCH"
+      optimization_range: [1800, 2600]
+      
+    - name: "pci"
+      description: "Physical Cell Identity"
+      mml_command: "DSP CELL"
+      optimization_range: [0, 503]
+      
+    - name: "tac"
+      description: "Tracking Area Code"
+      mml_command: "DSP CELL"
+      optimization_range: [1, 65535]
+      
+    - name: "txpower"
+      description: "Transmission Power"
+      mml_command: "DSP CELLRFPARA"
+      optimization_range: [10, 46]
+      
+    - name: "bandwidth"
+      description: "Channel Bandwidth"
+      mml_command: "DSP CELL"
+      optimization_range: [5, 20]  # MHz
+  
+  # Key Performance Indicators (KPIs)
+  kpis:
+    - name: "network_access_success_rate"
+      description: "Percentage of successful network access attempts"
+      threshold_min: 95.0
+      threshold_max: 100.0
+      unit: "percentage"
+      
+    - name: "download_quality"
+      description: "Average download quality score"
+      threshold_min: 80.0
+      threshold_max: 100.0
+      unit: "score"
+      
+    - name: "upload_quality"
+      description: "Average upload quality score"
+      threshold_min: 80.0
+      threshold_max: 100.0
+      unit: "score"
+      
+    - name: "prb_uplink_usage"
+      description: "Physical Resource Block uplink utilization"
+      threshold_min: 0.0
+      threshold_max: 80.0
+      unit: "percentage"
+      
+    - name: "prb_downlink_usage"
+      description: "Physical Resource Block downlink utilization"
+      threshold_min: 0.0
+      threshold_max: 80.0
+      unit: "percentage"
+      
+    - name: "avg_dl_throughput"
+      description: "Average downlink throughput"
+      threshold_min: 10.0
+      threshold_max: 150.0
+      unit: "Mbps"
+      
+    - name: "avg_ul_throughput"
+      description: "Average uplink throughput"
+      threshold_min: 5.0
+      threshold_max: 50.0
+      unit: "Mbps"
+
+# Agent Configuration (LZ-only)
+agents:
+  orchestration:
+    max_iterations: 10
+    timeout: 300
+    fallback_enabled: false  # No BubbleRAN fallback
+    
+  monitoring:
+    enabled: true
+    interval: 300  # 5 minutes
+    data_retention_days: 30
+    
+  optimization:
+    enabled: true
+    auto_apply: false  # Require manual approval for changes
+    optimization_interval: 3600  # 1 hour
+    
+  analytics:
+    enabled: true
+    ml_model: "liquid_4g_predictor"
+    prediction_horizon: 24  # hours
+
+# Database Configuration
+database:
+  type: "sqlite"
+  path: "data/liquid_4g_data.db"
+  backup_enabled: true
+  backup_interval: 24  # hours
+  retention_days: 90
+
+# Logging Configuration
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  file: "logs/liquid_4g_optimizer.log"
+  max_size: "10MB"
+  backup_count: 5
+
+# API Configuration (for external integrations)
+api:
+  enabled: true
+  host: "0.0.0.0"
+  port: 8502
+  cors_enabled: true
+  rate_limiting: true
+
+# Security Configuration
+security:
+  encryption_enabled: true
+  api_key_required: true
+  session_timeout: 3600  # 1 hour
+  
+# Monitoring & Alerting
+monitoring:
+  health_check_interval: 30  # seconds
+  metrics_collection: true
+  alerting:
+    enabled: true
+    email_notifications: true
+    thresholds:
+      cpu_usage: 80
+      memory_usage: 80
+      api_response_time: 5  # seconds

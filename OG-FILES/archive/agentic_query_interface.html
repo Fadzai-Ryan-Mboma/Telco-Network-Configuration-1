@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LZ 4G Network Optimizer - Agentic Operator</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Source Sans Pro', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background: #ffffff;
+      min-height: 100vh;
+      color: #262730;
+    }
+    
+    .streamlit-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1rem;
+    }
+    
+    .header { 
+      background: #ffffff;
+      padding: 1rem 0 0.5rem 0; 
+      border-bottom: 1px solid #e6e9ef;
+      margin-bottom: 2rem;
+    }
+    
+    .header h1 { 
+      color: #262730; 
+      font-size: 2.25rem; 
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      line-height: 1.2;
+    }
+    
+    .subtitle { 
+      color: #6c6c81; 
+      font-size: 1rem; 
+      margin-bottom: 1rem;
+      font-weight: 400;
+    }
+    
+    .tab-like-header {
+      background: #f0f2f6;
+      border: 1px solid #e6e9ef;
+      border-radius: 0.5rem;
+      padding: 0.5rem;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .tab-like-header h2 {
+      color: #262730;
+      font-size: 1.5rem;
+      font-weight: 600;
+      margin: 0;
+    }
+    
+    .main-container { 
+      max-width: 1200px; 
+      margin: 0 auto; 
+      padding: 0 1rem;
+    }
+    
+    .section-container {
+      background: #ffffff;
+      border: 1px solid #e6e9ef;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    
+    .section-title {
+      font-size: 1.25rem;
+      color: #262730;
+      margin-bottom: 1rem;
+      font-weight: 600;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e6e9ef;
+    }
+    
+    .input-group {
+      margin-bottom: 1.5rem;
+    }
+    
+    .input-label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 600;
+      color: #262730;
+      font-size: 0.875rem;
+    }
+    
+    .query-input {
+      width: 100%;
+      min-height: 120px;
+      padding: 0.75rem;
+      border: 1px solid #d4d8e0;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-family: inherit;
+      resize: vertical;
+      transition: all 0.2s ease;
+      background: #ffffff;
+    }
+    
+    .query-input:focus {
+      outline: none;
+      border-color: #ff2b2b;
+      box-shadow: 0 0 0 1px #ff2b2b;
+    }
+    
+    .quick-queries {
+      margin-top: 1rem;
+    }
+    
+    .quick-query-btn {
+      display: inline-block;
+      margin: 0.25rem 0.5rem 0.25rem 0;
+      padding: 0.375rem 0.75rem;
+      background: #f0f2f6;
+      color: #262730;
+      border: 1px solid #d4d8e0;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-size: 0.75rem;
+      transition: all 0.2s ease;
+      font-weight: 400;
+    }
+    
+    .quick-query-btn:hover {
+      background: #e6e9ef;
+      border-color: #c8ccd6;
+    }
+    
+    .submit-btn {
+      background: #ff2b2b;
+      color: white;
+      border: none;
+      padding: 0.5rem 1rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 1rem;
+    }
+    
+    .submit-btn:hover {
+      background: #d62d20;
+    }
+    
+    .submit-btn:disabled {
+      background: #c8ccd6;
+      cursor: not-allowed;
+    }
+    
+    .output-container {
+      background: #ffffff;
+      border: 1px solid #e6e9ef;
+      border-radius: 0.5rem;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    }
+    
+    .tab-headers {
+      display: flex;
+      background: #f0f2f6;
+      border-bottom: 1px solid #e6e9ef;
+    }
+    
+    .tab-header {
+      flex: 1;
+      padding: 0.75rem;
+      text-align: center;
+      color: #6c6c81;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-weight: 400;
+      font-size: 0.875rem;
+      border-right: 1px solid #e6e9ef;
+    }
+    
+    .tab-header:last-child {
+      border-right: none;
+    }
+    
+    .tab-header.active {
+      background: #ffffff;
+      color: #262730;
+      font-weight: 600;
+      border-bottom: 2px solid #ff2b2b;
+      margin-bottom: -1px;
+    }
+    
+    .tab-header:hover {
+      background: #e6e9ef;
+      color: #262730;
+    }
+    
+    .tab-content {
+      padding: 1.5rem;
+      min-height: 300px;
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .metric-container {
+      background: #f0f2f6;
+      border: 1px solid #e6e9ef;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .metric-label {
+      color: #6c6c81;
+      font-size: 0.75rem;
+      margin-bottom: 0.25rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #262730;
+      margin-bottom: 0.5rem;
+    }
+    
+    .agent-response {
+      background: #f8f9fb;
+      border-left: 3px solid #ff2b2b;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-bottom: 1rem;
+    }
+    
+    .agent-name {
+      font-weight: 600;
+      color: #262730;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+    
+    .agent-message {
+      line-height: 1.5;
+      color: #6c6c81;
+      font-size: 0.875rem;
+    }
+    
+    .status-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 0.5rem;
+    }
+    
+    .status-active { background: #00d4aa; }
+    .status-processing { background: #ff9800; animation: pulse 1.5s infinite; }
+    .status-complete { background: #2196F3; }
+    
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+    
+    .workflow-progress {
+      background: #f0f2f6;
+      border: 1px solid #e6e9ef;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .progress-steps {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .progress-step {
+      text-align: center;
+      flex: 1;
+    }
+    
+    .step-circle {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #e6e9ef;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 0.5rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #6c6c81;
+    }
+    
+    .step-circle.active {
+      background: #ff2b2b;
+      color: white;
+    }
+    
+    .step-circle.complete {
+      background: #00d4aa;
+      color: white;
+    }
+    
+    .kpi-metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .metric-card {
+      background: #f8f9fb;
+      padding: 1rem;
+      border-radius: 0.375rem;
+      border: 1px solid #e6e9ef;
+      text-align: center;
+    }
+    
+    .metric-card .metric-value {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: #262730;
+    }
+    
+    .metric-card .metric-label {
+      color: #6c6c81;
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255,43,43,.3);
+      border-radius: 50%;
+      border-top-color: #ff2b2b;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 0.5rem;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .footer-note {
+      margin-top: 1.5rem;
+      font-style: italic;
+      color: #6c6c81;
+      font-size: 0.875rem;
+    }
+    
+    .footer {
+      margin: 2rem auto 0; 
+      text-align: center; 
+      color: #6c6c81; 
+      font-size: 0.875rem; 
+      background: #f8f9fb; 
+      border-radius: 0.375rem; 
+      padding: 1rem; 
+      border: 1px solid #e6e9ef;
+    }
+    
+    .validation-section {
+      background: #fff8e1;
+      border: 2px solid #ffc107;
+      border-radius: 0.5rem;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    
+    .validation-section.hidden {
+      display: none;
+    }
+    
+    .validation-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .validation-icon {
+      font-size: 1.5rem;
+      margin-right: 0.5rem;
+    }
+    
+    .validation-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #d84315;
+      margin: 0;
+    }
+    
+    .validation-content {
+      margin-bottom: 1.5rem;
+    }
+    
+    .validation-warning {
+      background: #ffecb3;
+      border: 1px solid #ffb74d;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .validation-warning-text {
+      color: #e65100;
+      font-weight: 500;
+      font-size: 0.875rem;
+      margin: 0;
+    }
+    
+    .validation-checklist {
+      background: #ffffff;
+      border: 1px solid #e0e0e0;
+      border-radius: 0.375rem;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .validation-checklist-title {
+      font-weight: 600;
+      color: #262730;
+      margin-bottom: 0.75rem;
+      font-size: 0.875rem;
+    }
+    
+    .validation-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0.5rem;
+      font-size: 0.875rem;
+    }
+    
+    .validation-checkbox {
+      margin-right: 0.75rem;
+      cursor: pointer;
+    }
+    
+    .validation-actions {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    
+    .approve-btn {
+      background: #4caf50;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .approve-btn:hover {
+      background: #45a049;
+    }
+    
+    .approve-btn:disabled {
+      background: #c8ccd6;
+      cursor: not-allowed;
+    }
+    
+    .reject-btn {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.375rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    
+    .reject-btn:hover {
+      background: #d32f2f;
+    }
+    
+    .approval-status {
+      padding: 1rem;
+      border-radius: 0.375rem;
+      margin-top: 1rem;
+      font-weight: 500;
+      display: none;
+    }
+    
+    .approval-status.approved {
+      background: #e8f5e8;
+      border: 1px solid #4caf50;
+      color: #2e7d32;
+    }
+    
+    .approval-status.rejected {
+      background: #ffebee;
+      border: 1px solid #f44336;
+      color: #c62828;
+    }
+  </style>
+</head>
+<body>
+  <div class="streamlit-container">
+    <div class="header">
+      <h1>📡 Liquid Zimbabwe 4G Network Optimizer</h1>
+      <div class="subtitle">Network Monitoring and Configuration Dashboard with Real-time Parameter Query</div>
+    </div>
+
+    <div class="tab-like-header">
+      <h2>🤖 Agentic Operator</h2>
+    </div>
+
+    <div class="main-container">
+      <!-- Query Input Section -->
+      <div class="section-container">
+        <h2 class="section-title">❓Agentic Query</h2>
+      
+        
+        <div class="input-group">
+          <label class="input-label">Enter your network parameter or optimization query:</label>
+          <textarea 
+            class="query-input" 
+            id="queryInput"
+            placeholder="Ask about network performance, KPI analysis, parameter optimization, or request specific actions...&#10;&#10;Example: 'Analyze the current network performance and suggest parameter optimizations for improving throughput'"
+          ></textarea>
+        </div>
+        
+        <div class="quick-queries">
+          <strong>Quick Queries:</strong><br>
+          <button class="quick-query-btn" onclick="setQuery('Query Reference Signal Power for all live sites')">
+            📡 Reference Signal Power
+          </button>
+          <button class="quick-query-btn" onclick="setQuery('Analyze current network KPIs and identify optimization opportunities')">
+            📊 Analyze KPIs
+          </button>
+          <button class="quick-query-btn" onclick="setQuery('Suggest parameter changes to improve network throughput')">
+            ⚙️ Optimize Parameters
+          </button>
+          <button class="quick-query-btn" onclick="setQuery('Monitor network health and detect anomalies')">
+            🔍 Monitor Network
+          </button>
+        </div>
+        
+        <button class="submit-btn" onclick="submitQuery()" id="submitBtn">
+          ▶️ Execute Query
+        </button>
+      </div>
+
+      <!-- Output Tabs Section -->
+      <div class="output-container">
+        <div class="tab-headers">
+          <div class="tab-header active" onclick="switchTab('workflow')">
+            🔄 Workflow
+          </div>
+          <div class="tab-header" onclick="switchTab('responses')">
+            🤖 Agent Responses
+          </div>
+          <div class="tab-header" onclick="switchTab('kpis')">
+            📈 KPIs
+          </div>
+          <div class="tab-header" onclick="switchTab('recommendations')">
+            💡 Recommendations
+          </div>
+        </div>      <!-- Workflow Tab -->
+      <div class="tab-content active" id="workflow-tab">
+        <h3>Agentic Orchestration Workflow</h3>
+        <div class="workflow-progress">
+          <div class="progress-steps">
+            <div class="progress-step">
+              <div class="step-circle active">1</div>
+              <div>Network Connector</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">2</div>
+              <div>Monitoring</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">3</div>
+              <div>KPI Analytics</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">4</div>
+              <div>Configuration</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">5</div>
+              <div>Validation</div>
+            </div>
+            <div class="progress-step">
+              <div class="step-circle">6</div>
+              <div>Execution</div>
+            </div>
+          </div>
+        </div>
+        <p><strong>Status:</strong> <span class="status-indicator status-active"></span>Network Connector Agent is checking API connectivity...</p>
+        <p><em>Submit a query above to start the agentic workflow.</em></p>
+      </div>
+      
+      <!-- Responses Tab -->
+      <div class="tab-content" id="responses-tab">
+        <h3>Agent Responses & Analysis</h3>
+        <div class="agent-response">
+          <div class="agent-name">📊 Monitoring Agent</div>
+          <div class="agent-message">Ready to monitor network KPIs and detect performance degradation. Waiting for user query...</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">🧠 KPI Analytics Agent</div>
+          <div class="agent-message">AI-powered analytics engine is ready to perform correlation analysis and trend prediction.</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">⚙️ Configuration Agent</div>
+          <div class="agent-message">Standing by to analyze parameter interdependencies and suggest optimizations.</div>
+        </div>
+      </div>
+      
+      <!-- KPIs Tab -->
+      <div class="tab-content" id="kpis-tab">
+        <h3>Real-time Network KPIs</h3>
+        <div class="kpi-metrics">
+          <div class="metric-card">
+            <div class="metric-value">94.2%</div>
+            <div class="metric-label">Network Availability</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">87.5 Mbps</div>
+            <div class="metric-label">Average Throughput</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">12.3 ms</div>
+            <div class="metric-label">Latency</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-value">0.8%</div>
+            <div class="metric-label">Packet Loss Rate</div>
+          </div>
+        </div>
+        <p class="footer-note">KPIs update automatically every 30 seconds. Submit queries to get agentic analysis of these metrics.</p>
+      </div>
+      
+      <!-- Recommendations Tab -->
+      <div class="tab-content" id="recommendations-tab">
+        <h3>AI Recommendations & Insights</h3>
+        <div class="agent-response">
+          <div class="agent-name">💡 AI Insight</div>
+          <div class="agent-message">
+            <strong>Current Status:</strong> Network is operating within normal parameters. 
+            <br><br>
+            <strong>Optimization Opportunity:</strong> Based on historical analysis, there's a potential 3.2% improvement in weighted average gain through parameter optimization.
+            <br><br>
+            <strong>Recommended Action:</strong> Submit a query for parameter optimization to get specific recommendations.
+          </div>
+        </div>
+        
+        <!-- Validation Section -->
+        <div class="validation-section hidden" id="validationSection">
+          <div class="validation-header">
+            <span class="validation-icon">⚠️</span>
+            <h4 class="validation-title">Configuration Change Approval Required</h4>
+          </div>
+          
+          <div class="validation-content">
+            <div class="validation-warning">
+              <p class="validation-warning-text">
+                <strong>WARNING:</strong> The following changes will be applied to live network infrastructure. Please review carefully before approval.
+              </p>
+            </div>
+            
+            <div class="validation-checklist">
+              <div class="validation-checklist-title">Pre-Implementation Checklist:</div>
+              <div class="validation-item">
+                <input type="checkbox" class="validation-checkbox" id="check1" onchange="updateApprovalButton()">
+                <label for="check1">I have reviewed the recommended parameter changes & understand the expected impact on network performance</label>
+              </div>
+            </div>
+            
+            <div class="validation-actions">
+              <button class="approve-btn" id="approveBtn" onclick="approveChanges()" disabled>
+                ✅ Approve & Execute Changes
+              </button>
+              <button class="reject-btn" onclick="rejectChanges()">
+                ❌ Reject Changes
+              </button>
+            </div>
+            
+            <div class="approval-status" id="approvalStatus"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      🕐 Last updated: <span id="footerTime"></span> | 🌍 Liquid Zimbabwe 4G Network | Real-time Parameter Query Ready
+    </div>
+  </div>
+
+  <script>
+    // Initialize footer time
+    document.getElementById('footerTime').textContent = new Date().toLocaleString();
+    function setQuery(query) {
+      document.getElementById('queryInput').value = query;
+    }
+    
+    function switchTab(tabName) {
+      // Hide all tab contents
+      const tabs = document.querySelectorAll('.tab-content');
+      tabs.forEach(tab => tab.classList.remove('active'));
+      
+      // Remove active class from all headers
+      const headers = document.querySelectorAll('.tab-header');
+      headers.forEach(header => header.classList.remove('active'));
+      
+      // Show selected tab
+      document.getElementById(tabName + '-tab').classList.add('active');
+      event.target.classList.add('active');
+    }
+    
+    function submitQuery() {
+      const query = document.getElementById('queryInput').value.trim();
+      if (!query) {
+        alert('Please enter a query first.');
+        return;
+      }
+      
+      // Disable button and show loading
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="loading-spinner"></span>Processing Query...';
+      
+      // Simulate AI processing
+      simulateAgentProcessing(query);
+    }
+    
+    function simulateAgentProcessing(query) {
+      // Switch to workflow tab
+      switchTab('workflow');
+      
+      // Update workflow progress
+      const steps = document.querySelectorAll('.step-circle');
+      let currentStep = 0;
+      
+      const progressInterval = setInterval(() => {
+        if (currentStep < steps.length) {
+          steps[currentStep].classList.add('active');
+          if (currentStep > 0) {
+            steps[currentStep - 1].classList.remove('active');
+            steps[currentStep - 1].classList.add('complete');
+          }
+          currentStep++;
+        } else {
+          clearInterval(progressInterval);
+          // Reset button
+          const btn = document.getElementById('submitBtn');
+          btn.disabled = false;
+          btn.innerHTML = '🚀 Execute Query';
+          
+          // Update responses tab with simulated results
+          updateAgentResponses(query);
+        }
+      }, 1000);
+    }
+    
+    function updateAgentResponses(query) {
+      const responsesTab = document.getElementById('responses-tab');
+      responsesTab.innerHTML = `
+        <h3>Agent Responses & Analysis</h3>
+        <div class="agent-response">
+          <div class="agent-name">📊 Monitoring Agent</div>
+          <div class="agent-message">Query processed: "${query.substring(0, 50)}..." - Current network performance is within acceptable thresholds. Monitoring continuing...</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">🧠 KPI Analytics Agent</div>
+          <div class="agent-message">Correlation analysis complete. Identified 3 potential optimization points. Throughput can be improved by 5.7% with parameter adjustments.</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">⚙️ Configuration Agent</div>
+          <div class="agent-message">Recommendation: Adjust P0_NominalPUSCH from -96 dBm to -94 dBm and increase PDCCH aggregation level to 4. Impact assessment shows positive weighted average gain.</div>
+        </div>
+        <div class="agent-response">
+          <div class="agent-name">✅ Validation Agent</div>
+          <div class="agent-message">Configuration changes validated. Safe to proceed with implementation. Rollback plan prepared in case of performance degradation.</div>
+        </div>
+      `;
+      
+      // Update recommendations
+      const recommendationsTab = document.getElementById('recommendations-tab');
+      recommendationsTab.innerHTML = `
+        <h3>AI Recommendations & Insights</h3>
+        <div class="agent-response">
+          <div class="agent-name">💡 Primary Recommendation</div>
+          <div class="agent-message">
+            <strong>Optimization Target:</strong> Network Throughput
+            <br><br>
+            <strong>Recommended Changes:</strong>
+            <br>• P0_NominalPUSCH: -96 dBm → -94 dBm
+            <br>• PDCCH Aggregation Level: 2 → 4
+            <br><br>
+            <strong>Expected Impact:</strong> +5.7% throughput improvement, +3.2% weighted average gain
+            <br><br>
+            <strong>Risk Assessment:</strong> Low risk - Changes within safe operational parameters
+          </div>
+        </div>
+        
+        <!-- Validation Section -->
+        <div class="validation-section" id="validationSection">
+          <div class="validation-header">
+            <span class="validation-icon">⚠️</span>
+            <h4 class="validation-title">Configuration Change Approval Required</h4>
+          </div>
+          
+          <div class="validation-content">
+            <div class="validation-warning">
+              <p class="validation-warning-text">
+                <strong>WARNING:</strong> The following changes will be applied to live network infrastructure. Please review carefully before approval.
+              </p>
+            </div>
+            
+            <div class="validation-checklist">
+              <div class="validation-checklist-title">Pre-Implementation Checklist:</div>
+              <div class="validation-item">
+                <input type="checkbox" class="validation-checkbox" id="check1" onchange="updateApprovalButton()">
+                <label for="check1">I have reviewed the recommended parameter changes & understand the expected impact on network performance</label>
+              </div>
+            </div>
+            
+            <div class="validation-actions">
+              <button class="approve-btn" id="approveBtn" onclick="approveChanges()" disabled>
+                ✅ Approve & Execute Changes
+              </button>
+              <button class="reject-btn" onclick="rejectChanges()">
+                ❌ Reject Changes
+              </button>
+            </div>
+            
+            <div class="approval-status" id="approvalStatus"></div>
+          </div>
+        </div>
+      `;
+    }
+    
+    function updateApprovalButton() {
+      const checkbox = document.getElementById('check1');
+      const approveBtn = document.getElementById('approveBtn');
+      
+      // Enable/disable approve button based on checkbox state
+      if (approveBtn && checkbox) {
+        approveBtn.disabled = !checkbox.checked;
+      }
+    }
+    
+    function approveChanges() {
+      const statusDiv = document.getElementById('approvalStatus');
+      const approveBtn = document.getElementById('approveBtn');
+      const rejectBtn = document.querySelector('.reject-btn');
+      
+      // Disable buttons
+      approveBtn.disabled = true;
+      rejectBtn.disabled = true;
+      
+      // Show approval status
+      statusDiv.className = 'approval-status approved';
+      statusDiv.style.display = 'block';
+      statusDiv.innerHTML = `
+        <strong>✅ Changes Approved</strong><br>
+        Configuration changes have been approved and are being implemented. 
+        Monitoring for performance impact and rollback procedures are active.
+        <br><br>
+        <strong>Implementation Status:</strong> In Progress...
+      `;
+      
+      // Simulate implementation process
+      setTimeout(() => {
+        statusDiv.innerHTML = `
+          <strong>✅ Implementation Complete</strong><br>
+          Network configuration changes have been successfully applied:
+          <br>• P0_NominalPUSCH updated to -94 dBm
+          <br>• PDCCH Aggregation Level increased to 4
+          <br><br>
+          <strong>Status:</strong> Monitoring performance impact...
+        `;
+      }, 3000);
+    }
+    
+    function rejectChanges() {
+      const statusDiv = document.getElementById('approvalStatus');
+      const approveBtn = document.getElementById('approveBtn');
+      const rejectBtn = document.querySelector('.reject-btn');
+      
+      // Disable buttons
+      approveBtn.disabled = true;
+      rejectBtn.disabled = true;
+      
+      // Show rejection status
+      statusDiv.className = 'approval-status rejected';
+      statusDiv.style.display = 'block';
+      statusDiv.innerHTML = `
+        <strong>❌ Changes Rejected</strong><br>
+        The recommended configuration changes have been rejected and will not be implemented.
+        Network will maintain current configuration parameters.
+        <br><br>
+        <strong>Status:</strong> No changes made to network configuration.
+      `;
+      
+      // Reset checkbox
+      const checkbox = document.getElementById('check1');
+      if (checkbox) {
+        checkbox.checked = false;
+      }
+    }
+  </script>
+</body>
+</html>

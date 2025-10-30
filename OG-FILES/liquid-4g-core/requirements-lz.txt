@@ -1,0 +1,71 @@
+# Liquid Zimbabwe 4G Network Optimizer - Phase 2 Dependencies
+# Live Network Connection Testing with Huawei iMaster MAE API
+
+# Core AI & Agent Framework
+langchain==0.3.25
+langchain-community==0.3.23
+langchain-core==0.3.58
+langchain-nvidia-ai-endpoints==0.3.10
+langgraph==0.4.1
+
+# Network Integration & API Communication - Fixed aiohttp and httpx conflicts
+requests==2.31.0
+urllib3==2.0.4
+httpx>=0.25.2
+aiohttp>=3.9.1
+websockets==12.0
+
+# Security & SSL
+certifi==2023.11.17
+cryptography==41.0.7
+bcrypt==4.1.2
+python-jose==3.3.0
+
+# Data Management & Processing (using wheels when possible)
+pandas>=2.1.0
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Configuration Management
+pyyaml==6.0.1
+toml==0.10.2
+python-dotenv==1.0.0
+
+# User Interface
+streamlit==1.45.0
+plotly==5.17.0
+streamlit-autorefresh==1.0.1
+
+# Monitoring & Logging
+loguru==0.7.2
+prometheus-client==0.19.0
+
+# Async Support
+asyncio-mqtt==0.16.1
+aiodns==3.1.1
+
+# Machine Learning
+scikit-learn>=1.3.0
+
+# Development & Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.9.0
+flake8>=6.1.0
+
+# Container & Production Support
+gunicorn==21.2.0
+uvicorn==0.24.0
+
+# Performance Monitoring
+psutil>=5.9.0
+memory-profiler>=0.61.0
+
+# Date/Time Handling
+python-dateutil>=2.8.0
+pytz>=2023.3
+
+# Visualization Libraries
+matplotlib>=3.7.0
+seaborn>=0.12.0
+altair>=5.1.0
