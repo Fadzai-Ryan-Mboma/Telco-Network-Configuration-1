@@ -1,0 +1,26 @@
+# Core LangGraph and LangChain dependencies
+langchain-nvidia-ai-endpoints==0.0.11
+langchain-core==0.1.52
+langchain==0.1.16
+langgraph==0.0.55
+
+# UI and Data Processing
+streamlit==1.32.0
+pandas==2.2.1
+pydantic==2.6.4
+
+# Configuration and Database
+PyYAML==6.0.1
+sqlite3  # Built into Python
+
+# Network and API
+requests==2.31.0
+
+# Development and Testing
+pytest==8.1.1
+python-dotenv==1.0.1
+
+# Optional: If you want to keep existing enhancements
+# Add these only after basic system is working
+# huawei-api-client  # Your custom package
+# liquid-zimbabwe-kpi  # Your custom package
