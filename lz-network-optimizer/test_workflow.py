@@ -8,6 +8,10 @@ import os
 import sys
 import logging
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Setup paths
 sys.path.append(str(Path(__file__).parent))

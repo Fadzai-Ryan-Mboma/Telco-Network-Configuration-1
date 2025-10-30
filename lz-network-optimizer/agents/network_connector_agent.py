@@ -6,10 +6,14 @@ Created: 2025-10-30
 
 from typing import Dict, Any
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain.agents import create_react_agent, AgentExecutor
+from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import PromptTemplate
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -83,29 +87,28 @@ Retrieve these KPIs:
 - feedback_channel_load
 """
 
-    prompt = PromptTemplate.from_template(
-        NETWORK_CONNECTOR_PROMPT + "\n\nUSE TOOLS TO COMPLETE THIS TASK. Think step by step."
-    )
+    # Build system prompt with task
+    system_prompt = NETWORK_CONNECTOR_PROMPT + "\n\n" + task + "\n\nUSE TOOLS TO COMPLETE THIS TASK. Think step by step."
 
-    # Create ReAct agent
-    agent = create_react_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=True,
-        max_iterations=5,
-        handle_parsing_errors=True
-    )
+    # Create ReAct agent (LangGraph version - simpler API)
+    agent = create_react_agent(llm, tools, prompt=system_prompt)
 
     # Execute agent
     try:
-        result = agent_executor.invoke({"task": task})
+        # LangGraph create_react_agent expects messages in state
+        result = agent.invoke({"messages": [{"role": "user", "content": task}]})
+
+        # Extract output from messages
+        if "messages" in result and len(result["messages"]) > 0:
+            output = result["messages"][-1].content if hasattr(result["messages"][-1], 'content') else str(result["messages"][-1])
+        else:
+            output = str(result)
 
         # Update state
-        state["network_connector_output"] = result.get("output", "")
-        state["data_source"] = "live" if "OFFLINE MODE" not in result.get("output", "") else "historical"
+        state["network_connector_output"] = output
+        state["data_source"] = "live" if "OFFLINE MODE" not in output else "historical"
         state["agent_outputs"] = state.get("agent_outputs", {})
-        state["agent_outputs"]["network_connector"] = result.get("output", "")
+        state["agent_outputs"]["network_connector"] = output
 
     except Exception as e:
         state["network_connector_output"] = f"ERROR: {str(e)}"

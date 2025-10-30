@@ -6,10 +6,14 @@ Created: 2025-10-30
 
 from typing import Dict, Any
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain.agents import create_react_agent, AgentExecutor
+from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import PromptTemplate
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -60,18 +64,31 @@ IMPORTANT:
 If in DRY_RUN mode, simulate execution without making real changes.
 """
 
-    prompt = PromptTemplate.from_template(MML_EXECUTOR_AGENT_PROMPT)
-    agent = create_react_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=8)
+    # Build system prompt with task
+    system_prompt = MML_EXECUTOR_AGENT_PROMPT + "\n\n" + task + "\n\nUSE TOOLS TO COMPLETE THIS TASK."
 
+    # Create ReAct agent (LangGraph version)
+    agent = create_react_agent(llm, tools, prompt=system_prompt)
+
+    # Execute agent
     try:
-        result = agent_executor.invoke({"task": task})
-        state["executor_output"] = result.get("output", "")
-        state["agent_outputs"]["mml_executor"] = result.get("output", "")
+        # LangGraph create_react_agent expects messages in state
+        result = agent.invoke({"messages": [{"role": "user", "content": task}]})
+
+        # Extract output from messages
+        if "messages" in result and len(result["messages"]) > 0:
+            output = result["messages"][-1].content if hasattr(result["messages"][-1], 'content') else str(result["messages"][-1])
+        else:
+            output = str(result)
+
+        # Update state
+        state["executor_output"] = output
+        state["agent_outputs"] = state.get("agent_outputs", {})
+        state["agent_outputs"]["mml_executor"] = output
 
         # Determine success
-        output = result.get("output", "").upper()
-        state["optimization_success"] = "SUCCESS" in output and "FAILURE" not in output
+        output_upper = output.upper()
+        state["optimization_success"] = "SUCCESS" in output_upper and "FAILURE" not in output_upper
 
     except Exception as e:
         state["executor_output"] = f"ERROR: {str(e)}"

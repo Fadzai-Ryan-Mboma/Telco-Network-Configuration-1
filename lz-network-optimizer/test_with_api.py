@@ -6,6 +6,10 @@ Created: 2025-10-31
 
 import os
 import sys
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 def check_api_key():
     """Check if NVIDIA API key is set."""

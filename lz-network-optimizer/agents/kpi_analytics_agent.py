@@ -6,10 +6,14 @@ Created: 2025-10-30
 
 from typing import Dict, Any
 from langchain_nvidia_ai_endpoints import ChatNVIDIA
-from langchain.agents import create_react_agent, AgentExecutor
+from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import PromptTemplate
 import sys
 import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -46,22 +50,35 @@ YOUR TASK:
 6. Provide clear PRIMARY_KPI_ISSUE for Configuration Agent (e.g., "low_download_speed", "low_network_access_success")
 """
 
-    prompt = PromptTemplate.from_template(KPI_ANALYTICS_AGENT_PROMPT)
-    agent = create_react_agent(llm, tools, prompt)
-    agent_executor = AgentExecutor(agent=agent, tools=tools, verbose=True, max_iterations=6)
+    # Build system prompt with task
+    system_prompt = KPI_ANALYTICS_AGENT_PROMPT + "\n\n" + task + "\n\nUSE TOOLS TO COMPLETE THIS TASK."
 
+    # Create ReAct agent (LangGraph version)
+    agent = create_react_agent(llm, tools, prompt=system_prompt)
+
+    # Execute agent
     try:
-        result = agent_executor.invoke({"task": task})
-        state["kpi_analytics_output"] = result.get("output", "")
-        state["agent_outputs"]["kpi_analytics"] = result.get("output", "")
+        # LangGraph create_react_agent expects messages in state
+        result = agent.invoke({"messages": [{"role": "user", "content": task}]})
+
+        # Extract output from messages
+        if "messages" in result and len(result["messages"]) > 0:
+            output = result["messages"][-1].content if hasattr(result["messages"][-1], 'content') else str(result["messages"][-1])
+        else:
+            output = str(result)
+
+        # Update state
+        state["kpi_analytics_output"] = output
+        state["agent_outputs"] = state.get("agent_outputs", {})
+        state["agent_outputs"]["kpi_analytics"] = output
 
         # Extract primary KPI issue (simplified - would need better parsing)
-        output = result.get("output", "").lower()
-        if "download_speed" in output and "low" in output:
+        output_lower = output.lower()
+        if "download_speed" in output_lower and "low" in output_lower:
             state["primary_kpi_issue"] = "low_download_speed"
-        elif "network_access" in output and "low" in output:
+        elif "network_access" in output_lower and "low" in output_lower:
             state["primary_kpi_issue"] = "low_network_access_success"
-        elif "upload_speed" in output and "low" in output:
+        elif "upload_speed" in output_lower and "low" in output_lower:
             state["primary_kpi_issue"] = "low_upload_speed"
         else:
             state["primary_kpi_issue"] = "unknown"
