@@ -1,0 +1,206 @@
+# Liquid Zimbabwe 4G Network Optimizer - Main Configuration
+# Created: 2025-10-30
+# Purpose: Central configuration for agents, database, API, and logging
+
+# ============================================================================
+# NVIDIA AI Configuration
+# ============================================================================
+nvidia:
+  api_key: ${NVIDIA_API_KEY}  # Set via environment variable
+  model: "meta/llama-3.1-70b-instruct"
+  base_url: "https://integrate.api.nvidia.com/v1"
+  temperature: 0.7
+  max_tokens: 4096
+  timeout: 120  # seconds
+
+# ============================================================================
+# Huawei iMaster MAE API Configuration
+# ============================================================================
+huawei:
+  base_url: ${HUAWEI_API_URL}  # e.g., https://41.174.191.214:31127
+  username: ${HUAWEI_USERNAME}
+  password: ${HUAWEI_PASSWORD}
+  ssl_verify: false  # Required for self-signed certificate
+  timeout: 30
+  retry_attempts: 3
+  retry_delay: 5
+  rate_limit_ms: 100  # Minimum milliseconds between requests
+
+  # API Endpoints
+  endpoints:
+    oauth_token: "/api/rest/securityManagement/v1/oauth/token"
+    mml_command: "/api/rest/mmlManagement/v1/command"
+    query_cell: "/api/rest/cellManagement/v1/cells"
+    query_enodeb: "/api/rest/enbManagement/v1/enodebs"
+
+# ============================================================================
+# Database Configuration
+# ============================================================================
+database:
+  path: "data/lz_network.db"
+  backup_enabled: true
+  backup_interval_hours: 24
+  max_backups: 7
+
+# ============================================================================
+# Agent Configuration
+# ============================================================================
+agents:
+  # 1. Network Connector Agent
+  network_connector:
+    enabled: true
+    timeout: 60
+    health_check_interval: 300  # seconds
+    fallback_mode: "historical"  # Use historical data if API fails
+
+  # 2. Monitoring Agent
+  monitoring:
+    enabled: true
+    check_interval: 300  # Poll every 5 minutes
+    kpi_threshold_check: true
+    alert_on_degradation: true
+
+  # 3. KPI Analytics Agent
+  kpi_analytics:
+    enabled: true
+    weighted_scoring: true
+    weights_config: "config/kpi_weights.yaml"
+    trend_analysis_days: 7
+    baseline_calculation_days: 30
+
+  # 4. Configuration Agent
+  configuration:
+    enabled: true
+    few_shot_examples: 5
+    domain_knowledge_injection: true
+    safety_validation: true
+    require_approval: false  # Set to true for manual approval
+
+  # 5. Validation Agent
+  validation:
+    enabled: true
+    risk_scoring: true
+    parameter_range_check: true
+    kpi_impact_prediction: true
+    rollback_on_failure: true
+    max_risk_score: 7  # Scale 1-10, reject if > 7
+
+  # 6. MML Executor Agent
+  mml_executor:
+    enabled: true
+    dry_run: false  # Set to true to prevent actual MML execution
+    command_logging: true
+    rollback_support: true
+    execution_timeout: 60
+
+# ============================================================================
+# Optimization Rules Configuration
+# ============================================================================
+optimization:
+  # Trigger thresholds (when to optimize)
+  thresholds:
+    network_access_success_min: 95.0  # %
+    download_speed_min: 50.0  # Mbps
+    upload_speed_min: 20.0  # Mbps
+    download_quality_min: 95.0  # % (100 - IBLER)
+    upload_quality_min: 95.0  # %
+    control_channel_load_max: 80.0  # %
+    feedback_channel_load_max: 80.0  # %
+
+  # Weighted KPI thresholds
+  weighted_kpi_score_min: 80.0  # Trigger optimization if score < 80
+
+  # Parameter change limits (prevent aggressive changes)
+  parameter_limits:
+    reference_signal_power_max_change: 100  # 0.1 dBm units (= 10 dBm)
+    a3_event_offset_max_change: 2  # dB
+    t310_timer_max_change: 2000  # ms
+    p0_nominal_pusch_max_change: 10  # dBm
+    pdcch_aggregation_level_max_change: 1  # levels
+
+  # Optimization frequency limits
+  min_time_between_optimizations_hours: 4
+  max_optimizations_per_day: 3
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+  # File logging
+  file_logging:
+    enabled: true
+    directory: "logs"
+    max_size_mb: 10
+    backup_count: 5
+
+  # Console logging
+  console_logging:
+    enabled: true
+    colorize: false
+
+  # Agent-specific logging
+  agent_logs:
+    enabled: true
+    log_state_transitions: true
+    log_tool_calls: true
+    log_llm_prompts: false  # Set to true for debugging
+    log_llm_responses: false
+
+# ============================================================================
+# UI Configuration
+# ============================================================================
+ui:
+  title: "Liquid Zimbabwe 4G Network Optimizer"
+  theme: "cassava"  # Uses Cassava branding colors
+  port: 8501
+  refresh_interval: 30  # seconds
+
+  # Chart settings
+  charts:
+    default_days: 7
+    max_days: 30
+    show_thresholds: true
+    color_scheme: "cassava"
+
+  # Map settings (for future implementation)
+  map:
+    enabled: false
+    default_center: [-18.9958, 29.8753]  # Zimbabwe coordinates
+    default_zoom: 7
+
+# ============================================================================
+# Data Management
+# ============================================================================
+data:
+  # Historical data retention
+  retention:
+    kpi_data_days: 90
+    parameter_changes_days: 365
+    optimization_history_days: 365
+
+  # Data cleanup schedule
+  cleanup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM (cron format)
+
+# ============================================================================
+# System Settings
+# ============================================================================
+system:
+  debug_mode: false
+  test_mode: false  # Use test data instead of live API
+  offline_mode: false  # Work entirely offline with historical data
+
+  # Performance settings
+  max_concurrent_agents: 3
+  agent_timeout: 300  # seconds
+  tool_timeout: 60  # seconds
+
+  # Safety settings
+  require_user_approval: false  # Require approval for parameter changes
+  auto_rollback: true  # Auto-rollback on failures
+  rollback_timeout: 300  # seconds

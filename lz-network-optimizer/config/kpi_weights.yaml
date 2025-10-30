@@ -1,0 +1,252 @@
+# Liquid Zimbabwe 4G Network Optimizer - KPI Weighting Configuration
+# Created: 2025-10-30
+# Purpose: Define 3-tier weighted KPI scoring system
+
+# ============================================================================
+# 3-TIER KPI WEIGHTING SYSTEM
+# ============================================================================
+# Tier 1 (Foundation): 25% - Network must be accessible
+# Tier 2 (Revenue & Experience): 50% - User experience drives revenue
+# Tier 3 (Efficiency): 25% - Resource optimization
+# Total: 100%
+
+kpi_weights:
+  # ============================================================================
+  # TIER 1: FOUNDATION (25%)
+  # ============================================================================
+  # Rationale: If users can't access the network, nothing else matters
+  network_access_success:
+    weight: 0.25  # 25%
+    tier: 1
+    priority: "critical"
+    description: "RACH Setup Success Rate - Network accessibility"
+    unit: "%"
+    target: 98.0
+    min_acceptable: 95.0
+    thresholds:
+      excellent: 98.0
+      good: 95.0
+      fair: 90.0
+      poor: 85.0
+      critical: 80.0
+
+  # ============================================================================
+  # TIER 2: REVENUE & EXPERIENCE (50%)
+  # ============================================================================
+  # Rationale: These KPIs directly impact user satisfaction and revenue
+
+  # Download Speed - Highest weight in Tier 2 (mobile data is download-heavy)
+  download_speed:
+    weight: 0.20  # 20%
+    tier: 2
+    priority: "high"
+    description: "DL Cell PDCP Layer Average Throughput"
+    unit: "Mbps"
+    target: 100.0
+    min_acceptable: 50.0
+    thresholds:
+      excellent: 100.0
+      good: 75.0
+      fair: 50.0
+      poor: 25.0
+      critical: 10.0
+
+  # Download Quality - Second highest in Tier 2
+  download_quality:
+    weight: 0.15  # 15%
+    tier: 2
+    priority: "high"
+    description: "DL Quality (100 - IBLER)"
+    unit: "%"
+    target: 98.0
+    min_acceptable: 95.0
+    thresholds:
+      excellent: 98.0
+      good: 95.0
+      fair: 92.0
+      poor: 88.0
+      critical: 85.0
+
+  # Upload Speed - Important for video calls, social media uploads
+  upload_speed:
+    weight: 0.15  # 15%
+    tier: 2
+    priority: "medium"
+    description: "UL Cell PDCP Layer Average Throughput"
+    unit: "Mbps"
+    target: 50.0
+    min_acceptable: 20.0
+    thresholds:
+      excellent: 50.0
+      good: 35.0
+      fair: 20.0
+      poor: 10.0
+      critical: 5.0
+
+  # ============================================================================
+  # TIER 3: EFFICIENCY (25%)
+  # ============================================================================
+  # Rationale: Resource efficiency affects scalability and costs
+
+  # Upload Quality
+  upload_quality:
+    weight: 0.10  # 10%
+    tier: 3
+    priority: "medium"
+    description: "UL Quality (100 - IBLER)"
+    unit: "%"
+    target: 98.0
+    min_acceptable: 95.0
+    thresholds:
+      excellent: 98.0
+      good: 95.0
+      fair: 92.0
+      poor: 88.0
+      critical: 85.0
+
+  # Control Channel Load - PDCCH resource usage
+  control_channel_load:
+    weight: 0.10  # 10%
+    tier: 3
+    priority: "medium"
+    description: "PDCCH CCE Usage Rate"
+    unit: "%"
+    target: 50.0
+    max_acceptable: 80.0
+    thresholds:
+      excellent: 30.0   # Lower is better
+      good: 50.0
+      fair: 65.0
+      poor: 80.0
+      critical: 90.0
+    invert_scoring: true  # Lower values = better score
+
+  # Feedback Channel Load - PUCCH resource usage
+  feedback_channel_load:
+    weight: 0.05  # 5%
+    tier: 3
+    priority: "low"
+    description: "PUCCH Usage Rate"
+    unit: "%"
+    target: 30.0
+    max_acceptable: 80.0
+    thresholds:
+      excellent: 20.0   # Lower is better
+      good: 40.0
+      fair: 60.0
+      poor: 80.0
+      critical: 90.0
+    invert_scoring: true  # Lower values = better score
+
+# ============================================================================
+# WEIGHTED SCORING ALGORITHM
+# ============================================================================
+scoring:
+  # Method: Normalized weighted sum
+  # 1. Each KPI is normalized to 0-100 scale based on thresholds
+  # 2. Normalized value is multiplied by weight
+  # 3. All weighted values are summed to get total score (0-100)
+
+  normalization:
+    method: "threshold_based"  # Use threshold bands for scoring
+
+    # Threshold-based scoring (for most KPIs)
+    threshold_scoring:
+      excellent: 100
+      good: 85
+      fair: 70
+      poor: 50
+      critical: 25
+      below_critical: 0
+
+    # Inverted scoring (for load/usage KPIs where lower is better)
+    inverted_scoring:
+      excellent: 100
+      good: 85
+      fair: 70
+      poor: 50
+      critical: 25
+      above_critical: 0
+
+  # Overall score interpretation
+  overall_score:
+    excellent: 90  # >= 90
+    good: 80       # >= 80
+    fair: 70       # >= 70
+    poor: 60       # >= 60
+    critical: 50   # < 50
+
+# ============================================================================
+# VALIDATION RULES
+# ============================================================================
+validation:
+  # Ensure all weights sum to 1.0 (100%)
+  total_weight: 1.0
+  tolerance: 0.001  # Allow small floating-point errors
+
+  # Tier distribution validation
+  tier_weights:
+    tier_1: 0.25  # Foundation
+    tier_2: 0.50  # Revenue & Experience
+    tier_3: 0.25  # Efficiency
+
+# ============================================================================
+# IMPACT WEIGHTING (for parameter optimization)
+# ============================================================================
+# When optimizing parameters, consider which KPIs are most affected
+parameter_kpi_impact:
+  reference_signal_power_pdschcfg:
+    primary_impact:
+      - network_access_success  # High impact
+      - download_speed          # High impact
+      - download_quality        # Medium impact
+    secondary_impact:
+      - control_channel_load    # Low impact
+
+  a3_event_offset:
+    primary_impact:
+      - network_access_success  # High impact
+    secondary_impact:
+      - download_speed          # Medium impact
+      - upload_speed            # Medium impact
+
+  t310_timer:
+    primary_impact:
+      - network_access_success  # High impact
+    secondary_impact:
+      - download_quality        # Low impact
+      - upload_quality          # Low impact
+
+  p0_nominal_pusch:
+    primary_impact:
+      - upload_speed            # High impact
+      - upload_quality          # High impact
+    secondary_impact:
+      - network_access_success  # Medium impact
+      - feedback_channel_load   # Low impact
+
+  pdcch_aggregation_level:
+    primary_impact:
+      - control_channel_load    # High impact
+      - download_quality        # Medium impact
+    secondary_impact:
+      - download_speed          # Low impact
+
+# ============================================================================
+# EXAMPLE CALCULATION
+# ============================================================================
+# Site: MSH0013-Bindura-Zaoga
+#
+# Raw KPIs:
+#   network_access_success: 96% → "good" → 85 points
+#   download_speed: 75 Mbps → "good" → 85 points
+#   download_quality: 97% → "good" → 85 points
+#   upload_speed: 30 Mbps → "fair" → 70 points
+#   upload_quality: 96% → "good" → 85 points
+#   control_channel_load: 55% → "fair" (inverted) → 70 points
+#   feedback_channel_load: 40% → "good" (inverted) → 85 points
+#
+# Weighted Score:
+#   = (96*0.25) + (85*0.20) + (85*0.15) + (70*0.15) + (85*0.10) + (70*0.10) + (85*0.05)
+#   = 24.0 + 17.0 + 12.75 + 10.5 + 8.5 + 7.0 + 4.25
+#   = 84.0 (GOOD)
