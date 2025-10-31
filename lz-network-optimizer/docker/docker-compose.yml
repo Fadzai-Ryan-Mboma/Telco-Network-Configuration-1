@@ -67,10 +67,10 @@ services:
     networks:
       - lz-network
 
-    # Ports (currently no exposed ports, CLI-only)
-    # Will be needed in Phase 3 for UI/API
-    # ports:
-    #   - "8501:8501"  # Streamlit UI
+    # Ports (Phase 3: Streamlit UI enabled)
+    ports:
+      - "8501:8501"  # Streamlit UI
+    # Future Phase 3+:
     #   - "8000:8000"  # FastAPI backend
 
     # ========================================================================

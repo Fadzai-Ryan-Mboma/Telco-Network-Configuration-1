@@ -183,8 +183,21 @@ python3 test_with_api.py
 python3 test_workflow.py
 ```
 
-### 4. Run Optimization
+### 4. Run Optimization (CLI or Web UI)
 
+**Option A: Web UI (Recommended - Phase 3)**
+```bash
+# Start Streamlit dashboard
+streamlit run ui/app.py
+
+# Open browser to http://localhost:8501
+# 1. Select site from dropdown
+# 2. Enter natural language query
+# 3. Click "Run Optimization"
+# 4. Review AI recommendations
+```
+
+**Option B: Command Line**
 ```bash
 # List available sites
 python3 main.py --list-sites
