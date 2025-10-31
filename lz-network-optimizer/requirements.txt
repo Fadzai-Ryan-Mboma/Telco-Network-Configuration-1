@@ -1,0 +1,67 @@
+# ============================================================================
+# Liquid Zimbabwe 4G Network Optimizer - Python Dependencies
+# ============================================================================
+# Created: 2025-10-31
+# Python Version: 3.11+
+# Purpose: Docker container and production deployment dependencies
+# ============================================================================
+
+# Core LangChain Framework
+langchain==0.3.25
+langchain-core==0.3.79
+langchain-community==0.3.23
+
+# LangGraph for Agent Orchestration
+langgraph==0.6.8
+langgraph-checkpoint==2.1.1
+langgraph-prebuilt==0.6.4
+
+# NVIDIA AI Endpoints Integration
+langchain-nvidia-ai-endpoints==0.3.10
+
+# Environment & Configuration Management
+python-dotenv==1.1.1
+pyyaml>=6.0.1
+
+# HTTP & API Communication
+requests==2.31.0
+urllib3==2.5.0
+
+# Data Processing
+pandas==2.3.2
+
+# Database (SQLite3 is included in Python standard library)
+# No additional package needed for sqlite3
+
+# ============================================================================
+# Optional Dependencies (for development/testing)
+# ============================================================================
+# Uncomment if needed for development environment
+
+# Testing
+# pytest>=7.4.0
+# pytest-asyncio>=0.21.0
+
+# Code Quality
+# black>=23.0.0
+# flake8>=6.0.0
+# mypy>=1.5.0
+
+# Documentation
+# sphinx>=7.0.0
+# sphinx-rtd-theme>=1.3.0
+
+# ============================================================================
+# Production Notes
+# ============================================================================
+# - All versions pinned for reproducible builds
+# - Tested with Python 3.11.x
+# - Compatible with Docker python:3.11-slim base image
+# - Total install size: ~500MB (including dependencies)
+#
+# Installation:
+#   pip install --no-cache-dir -r requirements.txt
+#
+# Upgrade packages:
+#   pip install --upgrade -r requirements.txt
+# ============================================================================

@@ -1,0 +1,181 @@
+# ============================================================================
+# Liquid Zimbabwe 4G Network Optimizer - Docker Compose Configuration
+# ============================================================================
+# Version: 1.0.0
+# Purpose: Single-container orchestration for Phase 2.5
+# Future: Will expand to multi-container (API + UI + DB) in Phase 3
+# ============================================================================
+
+version: '3.8'
+
+services:
+  # ==========================================================================
+  # LZ Network Optimizer Service
+  # ==========================================================================
+  lz-optimizer:
+    # Build configuration
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+
+    # Container name
+    container_name: lz-network-optimizer
+
+    # Image name and tag
+    image: lz-network-optimizer:latest
+
+    # Restart policy
+    restart: unless-stopped
+
+    # ========================================================================
+    # Environment Variables
+    # ========================================================================
+    environment:
+      # Timezone
+      - TZ=Africa/Harare
+
+      # Python configuration
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+
+      # Application mode (development, staging, production)
+      - APP_ENV=production
+
+    # Load secrets from .env file (one directory up from docker/)
+    env_file:
+      - ../.env
+
+    # ========================================================================
+    # Volume Mounts
+    # ========================================================================
+    volumes:
+      # Database persistence (read-write)
+      - ../data:/app/data
+
+      # Configuration files (read-only)
+      - ../config:/app/config:ro
+
+      # Logs directory (read-write)
+      - lz-logs:/app/logs
+
+      # Optional: Mount custom domain knowledge
+      # - ../domain:/app/domain:ro
+
+    # ========================================================================
+    # Networking
+    # ========================================================================
+    networks:
+      - lz-network
+
+    # Ports (currently no exposed ports, CLI-only)
+    # Will be needed in Phase 3 for UI/API
+    # ports:
+    #   - "8501:8501"  # Streamlit UI
+    #   - "8000:8000"  # FastAPI backend
+
+    # ========================================================================
+    # Resource Limits
+    # ========================================================================
+    deploy:
+      resources:
+        limits:
+          # Maximum resources
+          memory: 2G
+          cpus: '2.0'
+        reservations:
+          # Minimum guaranteed resources
+          memory: 1G
+          cpus: '1.0'
+
+    # ========================================================================
+    # Logging Configuration
+    # ========================================================================
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"    # Maximum log file size
+        max-file: "3"       # Keep 3 rotated log files
+        compress: "true"    # Compress rotated logs
+
+    # ========================================================================
+    # Health Check
+    # ========================================================================
+    healthcheck:
+      test: ["CMD", "python3", "/app/docker/healthcheck.py"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+    # ========================================================================
+    # Command Override Examples
+    # ========================================================================
+    # Default: Shows help menu
+    # Override with specific commands:
+
+    # Run optimization for a specific site:
+    # command: ["python3", "main.py", "optimize", "--site", "MSH0013-Bindura-Zaoga"]
+
+    # Run in interactive mode:
+    # command: ["python3", "main.py", "interactive"]
+
+    # Run tests:
+    # command: ["python3", "-m", "pytest", "tests/"]
+
+# ============================================================================
+# Networks
+# ============================================================================
+networks:
+  lz-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# ============================================================================
+# Volumes
+# ============================================================================
+volumes:
+  lz-logs:
+    driver: local
+
+# ============================================================================
+# Usage Instructions
+# ============================================================================
+#
+# 1. Build the container:
+#    docker-compose -f docker/docker-compose.yml build
+#
+# 2. Start the service:
+#    docker-compose -f docker/docker-compose.yml up
+#
+# 3. Run in detached mode:
+#    docker-compose -f docker/docker-compose.yml up -d
+#
+# 4. View logs:
+#    docker-compose -f docker/docker-compose.yml logs -f
+#
+# 5. Stop the service:
+#    docker-compose -f docker/docker-compose.yml down
+#
+# 6. Run specific command:
+#    docker-compose -f docker/docker-compose.yml run --rm lz-optimizer \
+#      python3 main.py optimize --site MSH0013-Bindura-Zaoga
+#
+# 7. Interactive shell:
+#    docker-compose -f docker/docker-compose.yml exec lz-optimizer bash
+#
+# 8. Run tests:
+#    docker-compose -f docker/docker-compose.yml run --rm lz-optimizer \
+#      python3 test_workflow.py
+#
+# ============================================================================
+# Environment Variables Required in .env
+# ============================================================================
+#
+# NVIDIA_API_KEY="your-nvidia-api-key"
+# HUAWEI_API_URL="https://your-huawei-api-endpoint"
+# HUAWEI_USERNAME="your-username"
+# HUAWEI_PASSWORD="your-password"
+#
+# ============================================================================

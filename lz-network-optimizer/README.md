@@ -135,11 +135,20 @@ lz-network-optimizer/
 │   ├── schema.sql           # Database schema (3 tables)
 │   ├── lz_network.db        # SQLite database (168 records)
 │   └── historical_data.csv  # Historical KPI data
+├── docker/                  # 🐳 Docker containerization (Phase 2.5)
+│   ├── Dockerfile           # Production container definition
+│   ├── docker-compose.yml   # Container orchestration
+│   ├── .dockerignore        # Exclude unnecessary files
+│   ├── healthcheck.py       # Container health check
+│   └── entrypoint.sh        # Startup script
+├── deployment/              # 📚 Deployment documentation
+│   └── DOCKER_DEPLOYMENT_GUIDE.md  # Complete deployment guide
 ├── scripts/                 # Utility scripts
 │   └── import_historical_data.py
 ├── tests/                   # Test suite
 │   ├── test_workflow.py     # Integration tests
 │   └── test_with_api.py     # NVIDIA API test
+├── requirements.txt         # Python dependencies
 ├── main.py                  # CLI entry point
 └── TESTING_GUIDE.md         # Complete testing guide
 ```
@@ -183,6 +192,54 @@ python3 main.py --list-sites
 # Optimize a site
 python3 main.py --site "MSH0013-Bindura-Zaoga" --query "Optimize download speed"
 ```
+
+---
+
+## 🐳 Docker Deployment
+
+### Quick Start with Docker
+
+```bash
+# 1. Configure environment
+cp .env.template .env
+# Edit .env with your NVIDIA API key and Huawei credentials
+
+# 2. Build container
+docker compose -f docker/docker-compose.yml build
+
+# 3. Run tests in container
+docker compose -f docker/docker-compose.yml run --rm lz-optimizer \
+  python3 test_workflow.py
+
+# 4. Optimize a site
+docker compose -f docker/docker-compose.yml run --rm lz-optimizer \
+  python3 main.py optimize --site MSH0013-Bindura-Zaoga
+```
+
+### What's Included
+
+- **Base Image:** python:3.11-slim (~600MB)
+- **Security:** Non-root user execution
+- **Health Checks:** Automatic container monitoring
+- **Volume Mounts:** Database and config persistence
+- **Resource Limits:** 2GB RAM, 2 CPUs
+
+### Features
+
+✅ Single-command deployment
+✅ Automatic environment setup
+✅ Database persistence via volumes
+✅ Health monitoring
+✅ Production-ready configuration
+
+### Complete Guide
+
+See [deployment/DOCKER_DEPLOYMENT_GUIDE.md](deployment/DOCKER_DEPLOYMENT_GUIDE.md) for:
+- Detailed build instructions
+- Configuration options
+- Production deployment
+- Troubleshooting
+- Maintenance procedures
 
 ---
 
