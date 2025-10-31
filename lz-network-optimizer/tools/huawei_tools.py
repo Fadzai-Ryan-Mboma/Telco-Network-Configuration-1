@@ -87,11 +87,16 @@ def query_huawei_parameter(
 
         # Initialize Huawei API client
         try:
-            client = HuaweiAPIClient(
-                base_url=os.getenv('HUAWEI_API_URL'),
-                username=os.getenv('HUAWEI_USERNAME'),
-                password=os.getenv('HUAWEI_PASSWORD')
-            )
+            config = {
+                'base_url': os.getenv('HUAWEI_API_URL'),
+                'username': os.getenv('HUAWEI_USERNAME'),
+                'password': os.getenv('HUAWEI_PASSWORD'),
+                'timeout': 10,
+                'retry_attempts': 2,
+                'retry_delay': 3,
+                'ssl_verify': False
+            }
+            client = HuaweiAPIClient(config)
 
             # Execute MML command
             response = client.execute_mml_command(mml_command)
@@ -185,11 +190,16 @@ def modify_huawei_parameter(
 
         # Initialize Huawei API client
         try:
-            client = HuaweiAPIClient(
-                base_url=os.getenv('HUAWEI_API_URL'),
-                username=os.getenv('HUAWEI_USERNAME'),
-                password=os.getenv('HUAWEI_PASSWORD')
-            )
+            config = {
+                'base_url': os.getenv('HUAWEI_API_URL'),
+                'username': os.getenv('HUAWEI_USERNAME'),
+                'password': os.getenv('HUAWEI_PASSWORD'),
+                'timeout': 30,
+                'retry_attempts': 2,
+                'retry_delay': 3,
+                'ssl_verify': False
+            }
+            client = HuaweiAPIClient(config)
 
             # Execute MML command
             response = client.execute_mml_command(mml_command)
@@ -254,11 +264,16 @@ def execute_mml_command(
 
         # Initialize Huawei API client
         try:
-            client = HuaweiAPIClient(
-                base_url=os.getenv('HUAWEI_API_URL'),
-                username=os.getenv('HUAWEI_USERNAME'),
-                password=os.getenv('HUAWEI_PASSWORD')
-            )
+            config = {
+                'base_url': os.getenv('HUAWEI_API_URL'),
+                'username': os.getenv('HUAWEI_USERNAME'),
+                'password': os.getenv('HUAWEI_PASSWORD'),
+                'timeout': 30,
+                'retry_attempts': 2,
+                'retry_delay': 3,
+                'ssl_verify': False
+            }
+            client = HuaweiAPIClient(config)
 
             # Execute MML command
             response = client.execute_mml_command(mml_command)
@@ -322,11 +337,16 @@ def query_huawei_kpi(
 
         # Try to query from Huawei API
         try:
-            client = HuaweiAPIClient(
-                base_url=os.getenv('HUAWEI_API_URL'),
-                username=os.getenv('HUAWEI_USERNAME'),
-                password=os.getenv('HUAWEI_PASSWORD')
-            )
+            config = {
+                'base_url': os.getenv('HUAWEI_API_URL'),
+                'username': os.getenv('HUAWEI_USERNAME'),
+                'password': os.getenv('HUAWEI_PASSWORD'),
+                'timeout': 10,
+                'retry_attempts': 2,
+                'retry_delay': 3,
+                'ssl_verify': False
+            }
+            client = HuaweiAPIClient(config)
 
             # Query KPI counters via MML
             mml_command = f"LST PMDATA: OBJECTTYPE=CELL, LOCALCELLID={cell_id};"

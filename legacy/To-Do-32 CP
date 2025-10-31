@@ -1,0 +1,247 @@
+# Telco Network Configuration Project - 32 Checkpoint Todo List
+Last Updated: October 30, 2025
+
+# Stage 1: Initial Implementation
+
+## Phase 0 - Initial Setup & Planning
+1. [IN PROGRESS] Phase 0 — Planning & Approvals
+   - Review `REBUILD_PLAN_COMPLETE.md`, confirm scope and interactive checkpoints
+   - Capture last-minute constraints (NO simulation mode, credential handling)
+
+2. [ ] Create git backup branch & tag
+   - Branch: `archive/pre-reset-backup-2025-10-30` 
+   - Tag: `v2.0.0-before-reset`
+
+3. [ ] Create `CREDENTIALS_SECURE.txt` (gitignored)
+   - NVIDIA API key
+   - Huawei API credentials
+
+4. [ ] Create `rebuild-assets/` directory structure
+   - `domain_knowledge/`
+   - `prompts/`
+   - `api/`
+   - `branding/`
+   - `data/`
+   - `mml_commands/`
+   - `config/`
+
+5. [ ] Extract domain knowledge files
+   - Copy from `liquid-4g-core/agents/`:
+     - `liquid_zimbabwe_parameters.py`
+     - `liquid_zimbabwe_kpi.py`
+
+6. [ ] Recover and extract prompt files from OG-FILES
+   - `AGENT_PROMPTS_ARCHITECTURE.md`
+   - `prompt_templates.py`
+   - `enhanced_prompt_templates.py`
+   - `prompt_manager.py`
+   - `system_prompts.yaml`
+   - `task_prompts.yaml`
+
+7. [ ] Extract API client for review
+   - Copy `huawei_api_client.py` to `rebuild-assets/api/`
+
+8. [ ] Security review — remove hardcoded secrets
+   - Audit `huawei_api_client.py`
+   - Create `.sample_env`
+
+9. [ ] Create `LESSONS_LEARNED.md`
+   - Document failures and successes
+   - Key decisions to preserve
+
+10. [ ] Create clean working branch
+    - `rebuild/lz-nvidia-hybrid`
+
+## Phase 1 - Architecture & Design
+11. [ ] Create mapping & prompt integration docs
+    - `NVIDIA_TO_LZ_MAPPING.md`
+    - `PROMPT_INTEGRATION_PLAN.md`
+
+12. [ ] Create `requirements.txt` and venv setup
+    - Core dependencies
+    - Setup instructions
+
+13. [ ] Create unified DB schema & import historical data
+    - Design `lz_network.db`
+    - Import CSV data
+
+14. [ ] Create KPI weights config
+    - Implement 3-tier weights (25/50/25)
+
+15. [ ] Extract few-shot examples into canonical examples
+    - 3-5 examples per agent type
+
+## Phase 2 - Implementation
+16. [ ] Implement safe Huawei API tools (read-only first)
+    - GET/LST queries
+    - Retries and logging
+
+17. [ ] Create DB migration and schema scripts
+    - Migration CLI
+    - Sample data import
+
+18. [ ] Skeleton LangChain/LangGraph agent flow
+    - 6-agent framework
+    - Mock responses for testing
+
+19. [ ] Prepare Checkpoint #0 deliverables
+    - Assets review
+    - Security notes
+
+20. [ ] Checkpoint #1 — Architecture review
+    - Present design docs
+    - Get approval for Phase 2
+
+21. [ ] Phase 2 — Implement agents + few-shot prompting
+    - Full agent implementation
+    - Integration testing
+
+22. [ ] Checkpoint #2 — Agent demo
+    - Read-only analysis demo
+    - Get write operation approval
+
+## Phase 2.5 - Containerization
+23. [ ] Phase 2.5 — Docker containerization
+    - Dockerfile
+    - docker-compose.yml
+    - deploy.sh
+
+## Phase 3 - UI Development
+24. [ ] Phase 3 — Simple Streamlit UI with branding
+    - Minimal UI (<500 lines)
+    - Cassava branding
+
+## Phase 4 - Testing & Release
+25. [ ] Phase 4 — Testing, docs, demo prep, final packaging
+    - Integration tests
+    - Release preparation
+
+## ML Pipeline Extension
+26. [ ] Design ML pipeline architecture (MVP)
+    - Define components
+    - Document interfaces
+
+27. [ ] Data ingestion & ETL scripts
+    - Create data processing pipeline
+
+28. [ ] Baseline model training & evaluation
+    - Train initial models
+    - Evaluate performance
+
+29. [ ] Model explainability & evaluation reports
+    - Generate SHAP plots
+    - Create model reports
+
+30. [ ] Model serving & agent integration (read-only)
+    - Create FastAPI server
+    - Integrate with agents
+
+31. [ ] Monitoring, retraining & CI for ML models
+    - Setup MLflow
+    - Create CI pipeline
+
+32. [ ] MVP deploy & demo
+    - Containerize model server
+    - Run demonstration
+
+# Stage 2: Enhanced Implementation
+
+## Safety & Risk Management
+33. [ ] Parameter Change Safety System
+    - Implement automated parameter snapshots
+    - Create rollback trigger system
+    - Add pre-change health checks
+    - Implement post-change monitoring
+    - Add parameter range verification
+
+34. [ ] Intelligent Throttling System
+    - Implement rate limiting based on network load
+    - Add time-window restrictions
+    - Create site-group coordination logic
+    - Add maintenance window awareness
+
+## Enhanced Analytics & Intelligence
+35. [ ] Advanced KPI Analysis System
+    - Implement trend analysis module
+    - Add correlation analysis
+    - Create seasonal adjustment logic
+    - Build impact prediction system
+
+36. [ ] Smart Optimization Strategy
+    - Implement multi-level optimization modes
+      - Conservative: single parameter changes
+      - Balanced: coordinated parameter sets
+      - Aggressive: multi-parameter optimization
+    - Add ML-validated change proposals
+    - Create optimization success tracking
+
+## Resilient Architecture
+37. [ ] Enhanced Data Pipeline
+    - Implement stream processing
+    - Add time-series database integration
+    - Create real-time alerts system
+    - Build analytics layer
+
+38. [ ] Improved Agent Communication
+    - Add agent isolation capability
+    - Implement fallback modes
+    - Create auto-diagnosis system
+    - Add operator notification system
+
+## Advanced Monitoring & Reporting
+39. [ ] Enhanced Monitoring Stack
+    - Add agent performance metrics
+    - Implement change success tracking
+    - Create KPI improvement monitoring
+    - Add system health indicators
+    - Implement predictive alerts
+
+40. [ ] Business Impact Analysis
+    - Create technical impact assessment
+    - Add user experience metrics
+    - Implement revenue impact calculation
+    - Build risk scoring system
+
+41. [ ] Advanced Reporting System
+    - Create real-time KPI dashboard
+    - Add change history visualization
+    - Implement performance trend analysis
+    - Build business metrics dashboard
+    - Add ROI calculations
+
+## Operational Improvements
+42. [ ] Intelligent Scheduling System
+    - Implement traffic-aware timing
+    - Add maintenance window coordination
+    - Create change impact prediction
+    - Build optimal timing suggestion system
+
+43. [ ] Data Quality Management
+    - Implement data validation system
+    - Add data cleaning pipelines
+    - Create quality metrics dashboard
+    - Add data integrity checks
+
+44. [ ] Production Safeguards
+    - Implement gradual rollout capability
+    - Add operation blackout windows
+    - Create emergency stop mechanism
+    - Implement automatic issue detection
+
+## Additional Checkpoints
+CP3: Multi-Agent Integration
+    - Verify agent coordination
+    - Test failure modes
+    - Validate recovery procedures
+
+CP4: Production Readiness Review
+    - Complete security assessment
+    - Verify monitoring coverage
+    - Validate backup procedures
+    - Test emergency responses
+
+CP5: Post-Deployment Validation
+    - Verify KPI improvements
+    - Validate safety systems
+    - Confirm business impact
+    - Check monitoring effectiveness

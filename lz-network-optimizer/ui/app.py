@@ -240,7 +240,7 @@ with st.sidebar:
             st.markdown("### 📍 Site Information")
             st.write(f"**Name:** {site_info['site_name']}")
             st.write(f"**Location:** {site_info['location']}")
-            st.write(f"**Cell ID:** {site_info['cell_id']}")
+            st.write(f"**Cells:** {site_info['cell_count']} (aggregated)")
             st.write(f"**Status:** {site_info['status']}")
 
         # Get current parameters
@@ -277,9 +277,8 @@ with st.sidebar:
     stats = get_database_stats()
     if stats['latest_update']:
         update_time = datetime.fromisoformat(stats['latest_update'])
-        time_diff = datetime.now() - update_time
-        minutes_ago = int(time_diff.total_seconds() / 60)
-        st.write(f"• **Updated:** {minutes_ago}m ago")
+        formatted_time = update_time.strftime("%Y-%m-%d %H:%M:%S")
+        st.write(f"• **Updated:** {formatted_time}")
 
 # ============================================================================
 # MAIN CONTENT
@@ -420,7 +419,7 @@ with tab1:
             )
 
         with col2:
-            days = st.selectbox("Time Range", [7, 14, 30], index=0, format_func=lambda x: f"Last {x} Days")
+            days = st.selectbox("Time Range", [7, 14, 30, 60, 90], index=0, format_func=lambda x: f"Last {x} Days")
 
         # Create and display chart
         fig = create_kpi_chart(st.session_state.selected_site, selected_kpi, days)
@@ -455,7 +454,7 @@ with tab2:
 
     if activities:
         for activity in activities:
-            timestamp = datetime.fromisoformat(activity['timestamp']).strftime("%Y-%m-%d %H:%M")
+            timestamp = datetime.fromisoformat(activity['timestamp']).strftime("%Y-%m-%d %H:%M:%S")
             status_icon = {"success": "✅", "rejected": "❌", "detected": "🔍"}.get(activity.get('status', 'info'), "ℹ️")
 
             st.markdown(f"**{timestamp}** | {activity['site_name']}")

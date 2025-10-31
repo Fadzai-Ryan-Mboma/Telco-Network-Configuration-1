@@ -58,11 +58,16 @@ class KPICollector:
         # Initialize API client if not in offline mode
         if not self.offline_mode:
             try:
-                self.api_client = HuaweiAPIClient(
-                    base_url=os.getenv('HUAWEI_API_URL'),
-                    username=os.getenv('HUAWEI_USERNAME'),
-                    password=os.getenv('HUAWEI_PASSWORD')
-                )
+                api_config = {
+                    'base_url': os.getenv('HUAWEI_API_URL'),
+                    'username': os.getenv('HUAWEI_USERNAME'),
+                    'password': os.getenv('HUAWEI_PASSWORD'),
+                    'timeout': 30,
+                    'retry_attempts': 2,
+                    'retry_delay': 3,
+                    'ssl_verify': False
+                }
+                self.api_client = HuaweiAPIClient(api_config)
                 logger.info("Huawei API client initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize Huawei API client: {e}")

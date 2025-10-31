@@ -41,21 +41,18 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # ============================================================================
 # Copy Application Code
 # ============================================================================
-# Copy application structure (order matters for caching)
-COPY agents/ ./agents/
-COPY tools/ ./tools/
-COPY prompts/ ./prompts/
-COPY domain/ ./domain/
-COPY network/ ./network/
-COPY config/ ./config/
-COPY scripts/ ./scripts/
-COPY main.py .
+# Create necessary directories first
+RUN mkdir -p /app/docker
 
-# Copy Docker utilities
-COPY docker/healthcheck.py ./docker/
-COPY docker/entrypoint.sh ./docker/
+# First copy all application files
+COPY . /app/
 
-# Create directories for runtime data
+# Create directories for runtime data and ensure proper permissions
+RUN mkdir -p /app/data /app/logs && \
+    chmod +x /app/docker/entrypoint.sh /app/docker/healthcheck.py
+
+# Set the entrypoint script
+ENTRYPOINT ["/app/docker/entrypoint.sh"]
 RUN mkdir -p /app/data /app/logs
 
 # ============================================================================
