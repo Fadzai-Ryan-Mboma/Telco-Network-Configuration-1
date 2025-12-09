@@ -198,5 +198,84 @@ echo "Starting Application..."
 echo "============================================================================"
 echo ""
 
-# Execute the command passed to the container
-exec "$@"
+# Setup logging directory
+LOG_DIR="/app/logs"
+mkdir -p "$LOG_DIR"
+TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
+
+# Handle different run modes
+case "${1:-help}" in
+    "both"|"all")
+        echo "🚀 Starting both FastAPI Backend and Streamlit UI..."
+        echo ""
+        
+        # Start FastAPI backend with logging
+        echo "Starting FastAPI on port 8503..."
+        uvicorn api.main:app --host 0.0.0.0 --port 8503 \
+            2>&1 | tee -a "$LOG_DIR/api.log" &
+        API_PID=$!
+        echo "✓ FastAPI started (PID: $API_PID)"
+        
+        # Wait for API to be ready
+        sleep 3
+        
+        # Start Streamlit UI with logging
+        echo "Starting Streamlit UI on port 8502..."
+        streamlit run ui/app.py \
+            --server.port 8502 \
+            --server.address 0.0.0.0 \
+            --server.headless true \
+            --browser.gatherUsageStats false \
+            2>&1 | tee -a "$LOG_DIR/ui.log" &
+        UI_PID=$!
+        echo "✓ Streamlit UI started (PID: $UI_PID)"
+        
+        echo ""
+        echo "============================================================================"
+        echo "✅ Services Running:"
+        echo "   • Streamlit UI:    http://localhost:8502"
+        echo "   • FastAPI Backend: http://localhost:8503"
+        echo "   • API Docs:        http://localhost:8503/docs"
+        echo ""
+        echo "📁 Logs available at:"
+        echo "   • API logs: $LOG_DIR/api.log"
+        echo "   • UI logs:  $LOG_DIR/ui.log"
+        echo "============================================================================"
+        
+        # Wait for both processes
+        wait $API_PID $UI_PID
+        ;;
+        
+    "api")
+        echo "🚀 Starting FastAPI Backend only..."
+        exec uvicorn api.main:app --host 0.0.0.0 --port 8503 \
+            2>&1 | tee -a "$LOG_DIR/api.log"
+        ;;
+        
+    "ui")
+        echo "🚀 Starting Streamlit UI only..."
+        exec streamlit run ui/app.py \
+            --server.port 8502 \
+            --server.address 0.0.0.0 \
+            --server.headless true \
+            --browser.gatherUsageStats false \
+            2>&1 | tee -a "$LOG_DIR/ui.log"
+        ;;
+        
+    "help"|"--help"|"-h")
+        echo "Usage: entrypoint.sh [command]"
+        echo ""
+        echo "Commands:"
+        echo "  both    - Start both FastAPI and Streamlit (default)"
+        echo "  api     - Start FastAPI backend only"
+        echo "  ui      - Start Streamlit UI only"
+        echo "  help    - Show this help message"
+        echo ""
+        exec "$@"
+        ;;
+        
+    *)
+        # Execute any other command passed
+        exec "$@"
+        ;;
+esac

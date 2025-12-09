@@ -8,7 +8,7 @@ Pattern follows Nvidia's execute_xapp_sql implementation.
 """
 
 from langchain_core.tools import tool
-from typing import Annotated
+from typing import Annotated, Optional, Dict, Any
 import sqlite3
 import pandas as pd
 import os
@@ -211,6 +211,66 @@ def execute_lz_kpi_sql(
     except Exception as e:
         logger.error(f"Error executing KPI SQL: {e}")
         return f"ERROR: {str(e)}"
+
+
+# ============================================================================
+# Helper Function: Direct KPI Query (Fallback)
+# ============================================================================
+
+def get_latest_kpis_direct(site_name: str, cell_id: int = 1) -> Optional[Dict[str, Any]]:
+    """
+    Direct database query to get latest KPIs for a site.
+    This bypasses LLM query generation and serves as a reliable fallback.
+
+    Args:
+        site_name: Site name to query
+        cell_id: Cell ID (default 1)
+
+    Returns:
+        Dictionary with KPI values or None if not found
+    """
+    try:
+        if not os.path.exists(DB_PATH):
+            logger.error(f"Database not found at {DB_PATH}")
+            return None
+
+        conn = sqlite3.connect(DB_PATH)
+
+        # Use parameterized query to prevent SQL injection
+        query = """
+        SELECT
+            site_name,
+            cell_id,
+            network_access_success,
+            download_speed,
+            download_quality,
+            upload_speed,
+            upload_quality,
+            control_channel_load,
+            feedback_channel_load,
+            data_source,
+            timestamp
+        FROM kpi_data
+        WHERE site_name = ? AND cell_id = ?
+        ORDER BY timestamp DESC
+        LIMIT 1
+        """
+
+        df = pd.read_sql_query(query, conn, params=(site_name, cell_id))
+        conn.close()
+
+        if df.empty:
+            logger.warning(f"No KPI data found for site {site_name}, cell {cell_id}")
+            return None
+
+        # Convert to dictionary
+        kpis = df.iloc[0].to_dict()
+        logger.info(f"✅ Direct query successful for {site_name}: {len(kpis)} fields retrieved")
+        return kpis
+
+    except Exception as e:
+        logger.error(f"Direct KPI query error: {e}")
+        return None
 
 
 # ============================================================================

@@ -89,43 +89,43 @@ class HuaweiAPIClient:
         """
         try:
             logger.info("🔐 Attempting authentication with Huawei iMaster MAE...")
-            
-            # Prepare authentication request
-            auth_url = f"{self.base_url}/rest-oss/rest/plat/smapp/v1/login"
+
+            # Prepare authentication request (corrected endpoint from Postman testing)
+            auth_url = f"{self.base_url}/api/rest/securityManagement/v1/oauth/token"
             auth_payload = {
+                "grantType": "password",
                 "userName": self.username,
-                "password": self.password,
-                "lang": "en"
+                "value": self.password
             }
-            
-            # Make authentication request
-            response = self._make_request('POST', auth_url, json=auth_payload, authenticated=False)
+
+            # Make authentication request (PUT method as per Huawei OAuth API)
+            response = self._make_request('PUT', auth_url, json=auth_payload, authenticated=False)
             
             if response.status_code == 200:
                 auth_data = response.json()
-                
-                # Extract authentication tokens
-                if 'access_token' in auth_data:
-                    self.access_token = auth_data['access_token']
-                    
-                    # Calculate token expiration (default 1 hour if not specified)
-                    expires_in = auth_data.get('expires_in', 3600)
+
+                # Extract authentication tokens (Huawei uses 'accessSession' not 'access_token')
+                if 'accessSession' in auth_data:
+                    self.access_token = auth_data['accessSession']
+
+                    # Calculate token expiration (Huawei provides 'expires' in seconds)
+                    expires_in = auth_data.get('expires', 1800)  # Default 30 minutes
                     self.token_expires_at = datetime.now() + timedelta(seconds=expires_in)
-                    
-                    # Store session ID if available
-                    self.session_id = auth_data.get('session_id')
-                    
-                    # Update session headers
+
+                    # Store ROA random if available (used for some Huawei API calls)
+                    self.session_id = auth_data.get('roaRand')
+
+                    # Update session headers with Huawei's X-Auth-Token header
                     self.session.headers.update({
-                        'Authorization': f'Bearer {self.access_token}',
+                        'X-Auth-Token': self.access_token,
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     })
-                    
-                    logger.info("✅ Successfully authenticated with Huawei iMaster MAE")
+
+                    logger.info(f"✅ Successfully authenticated with Huawei iMaster MAE (token expires in {expires_in}s)")
                     return True
                 else:
-                    logger.error("❌ Authentication failed: No access token in response")
+                    logger.error("❌ Authentication failed: No accessSession in response")
                     return False
             else:
                 logger.error(f"❌ Authentication failed: HTTP {response.status_code}")
@@ -346,38 +346,127 @@ class HuaweiAPIClient:
             logger.error(f"❌ Failed to update parameters: {str(e)}")
             return False
     
-    def execute_mml_command(self, mml_command: str, ne_id: str = None) -> Dict[str, Any]:
+    def execute_mml_command(self, mml_command: str, site_names: List[str]) -> Dict[str, Any]:
         """
-        Execute MML command on network element
-        
+        Execute single MML command on network elements (sites)
+
+        IMPORTANT:
+        - QUERY commands (LST) work site-wide and return data for all cells
+        - MODIFY commands (MOD) must include LOCALCELLID and are cell-specific
+
         Args:
             mml_command: MML command string
-            ne_id: Network element ID (optional)
-            
+                Query example: "LST UECOOPERATIONPARA:;"
+                Modify example: "MOD PDSCHCFG:LOCALCELLID=1,REFERENCESIGNALPWR=-180;"
+            site_names: List of site names (e.g., ["MSH-0112-Bindura Hospital"])
+
         Returns:
             Dict containing command execution result
+
+        Example (Query - site-wide):
+            >>> client.execute_mml_command(
+            ...     "LST UECOOPERATIONPARA:;",
+            ...     ["MSH-0112-Bindura Hospital"]
+            ... )
+
+        Example (Modify - cell-specific):
+            >>> client.execute_mml_command(
+            ...     "MOD PDSCHCFG:LOCALCELLID=1,REFERENCESIGNALPWR=-180;",
+            ...     ["MSH-0112-Bindura Hospital"]
+            ... )
         """
         try:
             logger.info(f"📝 Executing MML command: {mml_command}")
-            
-            # Build MML command payload
+            logger.info(f"   Target sites: {', '.join(site_names)}")
+
+            # Build MML command payload (corrected format from API documentation)
             command_payload = {
                 'command': mml_command,
-                'neId': ne_id
+                'neNames': site_names
             }
-            
-            # Make MML command request
-            mml_url = f"{self.base_url}/rest-oss/rest/mml/v1/execute"
+
+            # Make MML command request (corrected endpoint from API documentation)
+            mml_url = f"{self.base_url}/api/rest/mmlManagement/v1/command"
             response = self._make_request('POST', mml_url, json=command_payload)
-            
+
             command_result = response.json()
-            
+
             logger.info(f"✅ MML command executed successfully")
             return command_result
-            
+
         except Exception as e:
             logger.error(f"❌ MML command execution failed: {str(e)}")
             raise HuaweiAPIError(f"MML command failed: {str(e)}")
+
+    def execute_mml_command_batch(self, command_template: str, site_name: str,
+                                   cell_ids: List[int] = None) -> List[Dict[str, Any]]:
+        """
+        Execute MML modification command for multiple cells at a site
+
+        CRITICAL: Parameter modifications MUST be done cell-by-cell.
+        This method executes the same parameter change across all cells.
+
+        Args:
+            command_template: MML command with {cell_id} placeholder
+                Example: "MOD PDSCHCFG:LOCALCELLID={cell_id},REFERENCESIGNALPWR=-180;"
+            site_name: Target site name (e.g., "MSH-0112-Bindura Hospital")
+            cell_ids: List of cell IDs (default: [1,2,3,4,5,6] for standard 6-cell site)
+
+        Returns:
+            List of command execution results (one per cell)
+
+        Example:
+            >>> client.execute_mml_command_batch(
+            ...     "MOD PDSCHCFG:LOCALCELLID={cell_id},REFERENCESIGNALPWR=-180;",
+            ...     "MSH-0112-Bindura Hospital"
+            ... )
+            Returns: [
+                {'cell_id': 1, 'command': '...', 'result': {...}, 'success': True},
+                {'cell_id': 2, 'command': '...', 'result': {...}, 'success': True},
+                ...
+            ]
+        """
+        if cell_ids is None:
+            cell_ids = [1, 2, 3, 4, 5, 6]  # Default 6-cell site configuration
+
+        logger.info(f"📝 Executing batch MML command for {len(cell_ids)} cells at {site_name}")
+
+        results = []
+        for cell_id in cell_ids:
+            try:
+                # Format command with cell ID
+                command = command_template.format(cell_id=cell_id)
+
+                logger.info(f"   Cell {cell_id}: {command}")
+
+                # Execute command for this cell
+                result = self.execute_mml_command(command, [site_name])
+
+                results.append({
+                    'cell_id': cell_id,
+                    'command': command,
+                    'result': result,
+                    'success': True
+                })
+
+                logger.info(f"   ✅ Cell {cell_id}: SUCCESS")
+
+            except Exception as e:
+                logger.error(f"   ❌ Cell {cell_id}: FAILED - {str(e)}")
+
+                results.append({
+                    'cell_id': cell_id,
+                    'command': command if 'command' in locals() else 'N/A',
+                    'result': None,
+                    'success': False,
+                    'error': str(e)
+                })
+
+        # Summary
+        successful = sum(1 for r in results if r['success'])
+        logger.info(f"✅ Batch execution complete: {successful}/{len(cell_ids)} cells successful")
+
+        return results
     
     def get_cell_list(self) -> List[Dict[str, Any]]:
         """

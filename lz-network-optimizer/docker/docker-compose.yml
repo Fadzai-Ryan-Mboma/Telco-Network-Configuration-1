@@ -1,14 +1,14 @@
 # ============================================================================
 # Liquid Zimbabwe 4G Network Optimizer - Docker Compose Configuration
 # ============================================================================
-# Version: 2.0.0
-# Purpose: Single-container orchestration for Phase 2.5
-# Future: Will expand to multi-container (API + UI + DB) in Phase 3
+# Version: 2.1.0
+# Purpose: Full-stack deployment with API + UI + Logging
+# Services: FastAPI Backend (8503) + Streamlit UI (8501)
 # ============================================================================
 
 services:
   # ==========================================================================
-  # LZ Network Optimizer Service
+  # LZ Network Optimizer Service (API + UI)
   # ==========================================================================
   lz-optimizer:
     # Build configuration
@@ -38,37 +38,17 @@ services:
 
       # Application mode (development, staging, production)
       - APP_ENV=production
+      
+      # Logging configuration
+      - LOG_LEVEL=INFO
+      - LOG_TO_FILE=true
 
     # Load secrets from .env file (one directory up from docker/)
     env_file:
       - ../.env
 
-    # Command configuration
-    entrypoint: ["/bin/bash", "/app/docker/entrypoint.sh"]
-    
-    # Health check configuration
-    healthcheck:
-      test: ["CMD", "python", "/app/docker/healthcheck.py"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
-
-    # Volume configuration
-    volumes:
-      - ../data:/app/data
-      - ../logs:/app/logs
-
-    # Command and entrypoint configuration
-    entrypoint: ["/bin/bash", "/app/docker/entrypoint.sh"]
-    
-    # Health check configuration
-    healthcheck:
-      test: ["CMD", "python", "/app/docker/healthcheck.py"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+    # Command: Run both API and UI
+    command: ["both"]
 
     # ========================================================================
     # Volume Mounts
@@ -80,11 +60,14 @@ services:
       # Configuration files (read-only)
       - ../config:/app/config:ro
 
-      # Logs directory (read-write)
-      - lz-logs:/app/logs
+      # Logs directory (read-write) - mounted to host for easy access
+      - ../logs:/app/logs
 
-      # Optional: Mount custom domain knowledge
-      # - ../domain:/app/domain:ro
+      # UI assets (read-only)
+      - ../ui:/app/ui:ro
+
+      # API code (read-only)
+      - ../api:/app/api:ro
 
     # ========================================================================
     # Networking
@@ -92,11 +75,10 @@ services:
     networks:
       - lz-network
 
-    # Ports (Phase 3: Streamlit UI enabled)
+    # Ports
     ports:
-      - "8501:8501"  # Streamlit UI
-    # Future Phase 3+:
-    #   - "8000:8000"  # FastAPI backend
+      - "8502:8502"  # Streamlit UI
+      - "8503:8503"  # FastAPI Backend
 
     # ========================================================================
     # Resource Limits
@@ -158,41 +140,46 @@ networks:
         - subnet: 172.20.0.0/16
 
 # ============================================================================
-# Volumes
-# ============================================================================
-volumes:
-  lz-logs:
-    driver: local
-
-# ============================================================================
 # Usage Instructions
 # ============================================================================
 #
 # 1. Build the container:
+#    cd lz-network-optimizer
 #    docker-compose -f docker/docker-compose.yml build
 #
-# 2. Start the service:
+# 2. Start services (API + UI with logging):
 #    docker-compose -f docker/docker-compose.yml up
 #
-# 3. Run in detached mode:
+# 3. Run in detached mode (background):
 #    docker-compose -f docker/docker-compose.yml up -d
 #
-# 4. View logs:
+# 4. View logs (live):
 #    docker-compose -f docker/docker-compose.yml logs -f
 #
-# 5. Stop the service:
+# 5. View logs on host:
+#    tail -f logs/app.log
+#
+# 6. Stop the services:
 #    docker-compose -f docker/docker-compose.yml down
 #
-# 6. Run specific command:
-#    docker-compose -f docker/docker-compose.yml run --rm lz-optimizer \
-#      python3 main.py optimize --site MSH0013-Bindura-Zaoga
+# 7. Rebuild after code changes:
+#    docker-compose -f docker/docker-compose.yml build --no-cache
+#    docker-compose -f docker/docker-compose.yml up -d
 #
-# 7. Interactive shell:
+# 8. Interactive shell:
 #    docker-compose -f docker/docker-compose.yml exec lz-optimizer bash
 #
-# 8. Run tests:
-#    docker-compose -f docker/docker-compose.yml run --rm lz-optimizer \
-#      python3 test_workflow.py
+# 9. Check container health:
+#    docker-compose -f docker/docker-compose.yml ps
+#
+# ============================================================================
+# Access Points
+# ============================================================================
+#
+# Streamlit UI:    http://localhost:8501
+# FastAPI Backend: http://localhost:8503
+# API Docs:        http://localhost:8503/docs
+# Health Check:    http://localhost:8503/api/health
 #
 # ============================================================================
 # Environment Variables Required in .env

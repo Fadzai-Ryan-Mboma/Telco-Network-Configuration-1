@@ -5,9 +5,15 @@ Purpose: Database query functions for Streamlit UI
 
 import sqlite3
 import logging
+import os
+import re
 from pathlib import Path
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
+import urllib3
+
+# Disable SSL warnings for self-signed certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logger = logging.getLogger(__name__)
 
@@ -323,22 +329,23 @@ def get_kpi_history(site_name: str, kpi_name: str, days: int = 7) -> List[Tuple[
 
 def get_kpi_threshold(kpi_name: str) -> float:
     """
-    Get threshold value for a KPI.
+    Get operating average value for a KPI based on actual network data.
 
     Args:
         kpi_name: Name of the KPI
 
     Returns:
-        Threshold value
+        Operating average value
     """
+    # Operating averages based on actual Bindura Cluster network data (Sept-Nov 2025)
     thresholds = {
-        "network_access_success": 95.0,
-        "download_speed": 50.0,
-        "upload_speed": 20.0,
-        "download_quality": 95.0,
-        "upload_quality": 95.0,
-        "control_channel_load": 80.0,
-        "feedback_channel_load": 80.0
+        "network_access_success": 90.0,   # Avg: 92%, target slightly below
+        "download_speed": 5.0,            # Avg: 6.56 Mbps
+        "upload_speed": 3.0,              # Avg: 3.93 Mbps
+        "download_quality": 80.0,         # Avg: 83.72%
+        "upload_quality": 92.0,           # Avg: 93.54%
+        "control_channel_load": 70.0,     # Avg: 32.46%, max: 61%
+        "feedback_channel_load": 20.0     # Avg: 5%, max: 23%
     }
     return thresholds.get(kpi_name, 0.0)
 
@@ -390,50 +397,71 @@ def get_recent_activity(limit: int = 10) -> List[Dict[str, any]]:
                 "status": status
             })
 
+        # Also get optimization queries (approved, rejected, incomplete)
+        cursor.execute("""
+            SELECT
+                site_name,
+                timestamp,
+                user_query,
+                status,
+                recommendation_summary
+            FROM optimization_queries
+            ORDER BY timestamp DESC
+            LIMIT ?
+        """, (limit,))
+        
+        for row in cursor.fetchall():
+            status_map = {
+                "approved": "success",
+                "rejected": "rejected",
+                "incomplete": "detected"
+            }
+            activities.append({
+                "site_name": row["site_name"],
+                "timestamp": row["timestamp"],
+                "action_type": "query",
+                "description": f"Query: {row['user_query']}",
+                "changes": row["recommendation_summary"] or "No recommendation",
+                "result": row["status"].title(),
+                "status": status_map.get(row["status"], "info")
+            })
+        
+        # Sort all activities by timestamp
+        activities.sort(key=lambda x: x["timestamp"], reverse=True)
+        
         conn.close()
-        return activities
+        return activities[:limit]
 
     except Exception as e:
         logger.error(f"Error getting activity log: {e}")
         return []
 
 
-def check_api_status() -> Dict[str, str]:
+def check_api_status(site_name: str = None) -> Dict[str, str]:
     """
-    Check status of APIs and database.
+    Check status of APIs, Network Elements, and database.
 
+    Args:
+        site_name: Optional site name to check NE connectivity
+        
     Returns:
-        Dict with status of each component
+        Dict with status of each component:
+        - api: API Connected / API Unreachable
+        - ne: NEs Connected / NEs Unreachable  
+        - db: DB Connected / DB Unreachable
     """
     import os
     import socket
 
     status = {}
 
-    # Check NVIDIA API key
-    nvidia_key = os.getenv("NVIDIA_API_KEY")
-    status["nvidia_api"] = "✅ Connected" if nvidia_key else "❌ Not configured"
-
-    # Check Huawei API (test actual connection)
+    # 1. Check Huawei API connectivity
     huawei_url = os.getenv("HUAWEI_API_URL")
     huawei_user = os.getenv("HUAWEI_USERNAME")
+    api_reachable = False
 
     if huawei_url and huawei_user:
         try:
-            # Try to test API client initialization
-            from network.huawei_api_client import HuaweiAPIClient
-
-            config = {
-                'base_url': huawei_url,
-                'username': huawei_user,
-                'password': os.getenv("HUAWEI_PASSWORD"),
-                'timeout': 5,  # Quick timeout for UI
-                'retry_attempts': 1,
-                'retry_delay': 1,
-                'ssl_verify': False
-            }
-
-            # Test TCP connection to API endpoint
             from urllib.parse import urlparse
             parsed_url = urlparse(huawei_url)
             hostname = parsed_url.hostname
@@ -445,28 +473,57 @@ def check_api_status() -> Dict[str, str]:
             sock.close()
 
             if result == 0:
-                # Connection successful - API is reachable
-                status["huawei_api"] = "✅ Connected"
+                api_reachable = True
+                status["api"] = "✅ API Connected"
             else:
-                # Cannot connect - fallback to DB
-                status["huawei_api"] = "⚠️ Fallback to DB"
+                status["api"] = "❌ API Unreachable"
         except Exception as e:
-            # Error testing connection - fallback to DB
-            status["huawei_api"] = "⚠️ Fallback to DB"
+            status["api"] = "❌ API Unreachable"
     else:
-        status["huawei_api"] = "❌ Not configured"
+        status["api"] = "❌ API Unreachable"
 
-    # Check database
+    # 2. Check Network Element (NE) connectivity for selected site
+    if site_name and api_reachable:
+        try:
+            # Check if we can get live parameters (indicates NE is connected)
+            params_data = None
+            try:
+                import requests
+                response = requests.get(
+                    f"http://localhost:8503/api/params/{site_name}",
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    params_data = response.json()
+            except:
+                pass
+            
+            if params_data:
+                if params_data.get("status") == "success":
+                    status["ne"] = "✅ NEs Connected"
+                elif params_data.get("site_offline"):
+                    status["ne"] = "❌ NEs Unreachable"
+                else:
+                    status["ne"] = "⚠️ NEs Unreachable"
+            else:
+                status["ne"] = "⚠️ NEs Unreachable"
+        except Exception as e:
+            status["ne"] = "⚠️ NEs Unreachable"
+    elif not api_reachable:
+        status["ne"] = "⚠️ NEs Unknown (API down)"
+    else:
+        status["ne"] = "⚠️ NEs Unknown"
+
+    # 3. Check database connectivity
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT COUNT(*) as count FROM kpi_data")
         row = cursor.fetchone()
-        record_count = row["count"] if row else 0
         conn.close()
-        status["database"] = f"✅ Online ({record_count} records)"
+        status["db"] = "✅ DB Connected"
     except:
-        status["database"] = "❌ Error"
+        status["db"] = "❌ DB Unreachable"
 
     return status
 
@@ -509,3 +566,335 @@ def get_database_stats() -> Dict[str, int]:
             "total_records": 0,
             "latest_update": None
         }
+
+
+# ============================================================================
+# LIVE PARAMETER FETCHING FROM HUAWEI API
+# ============================================================================
+
+def get_live_parameters(site_name: str, cell_id: int = 1) -> Optional[Dict[str, any]]:
+    """
+    Get LIVE parameter values from Huawei iMaster MAE API.
+    
+    This queries the actual network equipment for current parameter values
+    instead of using database defaults.
+    
+    Args:
+        site_name: Name of the site (e.g., 'MSH-0014-Chipadze')
+        cell_id: Cell ID to query (default: 1, or 0 for global params)
+    
+    Returns:
+        Dict with parameter values and metadata, or None on error
+    """
+    try:
+        # Import tools (delayed import to avoid circular imports)
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent.parent))
+        
+        from tools.huawei_tools import query_huawei_parameter_site
+        from domain.mml_commands import format_command_response
+        
+        params = {
+            "reference_signal_power_pdschcfg": None,
+            "a3_event_offset": None,
+            "t310_timer": None,
+            "p0_nominal_pusch": None,
+            "pdcch_aggregation_level": None,
+            "last_modified": datetime.now().isoformat(),
+            "data_source": "live_api",
+            "errors": [],
+            "site_offline": False  # Flag to indicate if NE is not connected
+        }
+        
+        param_names = [
+            "reference_signal_power_pdschcfg",
+            "a3_event_offset",
+            "t310_timer",
+            "p0_nominal_pusch",
+            "pdcch_aggregation_level"
+        ]
+        
+        for param_name in param_names:
+            try:
+                result = query_huawei_parameter_site.invoke({
+                    "parameter_name": param_name,
+                    "site_name": site_name
+                })
+                
+                if result and "ERROR" not in result:
+                    # Parse the value from the result string
+                    value = _parse_parameter_value(result, param_name)
+                    params[param_name] = value
+                else:
+                    params["errors"].append(f"{param_name}: {result}")
+                    # Check if site/NE is not connected
+                    if result and ("not connected" in result.lower() or "ne is not connected" in result.lower()):
+                        params["site_offline"] = True
+                    
+            except Exception as e:
+                logger.warning(f"Failed to query {param_name}: {e}")
+                params["errors"].append(f"{param_name}: {str(e)}")
+        
+        return params
+        
+    except Exception as e:
+        logger.error(f"Error getting live parameters for {site_name}: {e}")
+        return None
+
+
+def _parse_parameter_value(result_str: str, param_name: str) -> any:
+    """
+    Parse parameter value from query result string.
+    
+    Args:
+        result_str: Raw result string from query_huawei_parameter_site
+        param_name: Name of the parameter
+    
+    Returns:
+        Parsed value (numeric or string)
+    """
+    try:
+        # Handle global parameters (single value)
+        if "global" in result_str.lower():
+            # Extract value after the colon, e.g., "Parameter x for site: 3dB  (global)"
+            match = re.search(r':\s*([^\s(]+)', result_str)
+            if match:
+                value = match.group(1).strip()
+                # Try to convert to number if possible
+                return _convert_value(value, param_name)
+        
+        # Handle cell-specific parameters - get Cell 1 value as representative
+        cell_match = re.search(r'Cell 1:\s*([^\n,]+)', result_str)
+        if cell_match:
+            value = cell_match.group(1).strip()
+            return _convert_value(value, param_name)
+        
+        # Fallback: find any numeric value
+        num_match = re.search(r'[-+]?\d+\.?\d*', result_str)
+        if num_match:
+            return float(num_match.group())
+        
+        return result_str
+        
+    except Exception as e:
+        logger.warning(f"Failed to parse value for {param_name}: {e}")
+        return result_str
+
+
+def _convert_value(value_str: str, param_name: str) -> any:
+    """
+    Convert value string to appropriate type based on parameter.
+    
+    Args:
+        value_str: Value string (may include units like 'dB', 'ms')
+        param_name: Parameter name for context
+    
+    Returns:
+        Converted value
+    """
+    # Remove common units for numeric conversion
+    clean_value = value_str.replace('dB', '').replace('ms', '').replace('dBm', '').strip()
+    
+    # Handle special cases
+    if param_name == "a3_event_offset":
+        # Keep as string with unit, or extract number
+        try:
+            return int(clean_value)
+        except:
+            return value_str
+            
+    elif param_name == "t310_timer":
+        # Convert ms value to integer
+        try:
+            return int(clean_value)
+        except:
+            return value_str
+            
+    elif param_name == "pdcch_aggregation_level":
+        # Keep as string (e.g., "CONGREG_LV4")
+        return value_str
+    
+    # Default: try numeric conversion
+    try:
+        if '.' in clean_value:
+            return float(clean_value)
+        return int(clean_value)
+    except:
+        return value_str
+
+
+def get_site_parameters_with_live(site_name: str, use_live: bool = False) -> Optional[Dict[str, any]]:
+    """
+    Get parameter values with option to use live API or database.
+    
+    Args:
+        site_name: Name of the site
+        use_live: If True, query live API; if False, use database/defaults
+    
+    Returns:
+        Dict with parameter values
+    """
+    if use_live:
+        live_params = get_live_parameters(site_name)
+        if live_params and not live_params.get("errors"):
+            return live_params
+        
+        # If live failed, log and fall back to database
+        if live_params:
+            logger.warning(f"Live query had errors: {live_params.get('errors')}")
+    
+    # Fall back to database/defaults
+    return get_site_parameters(site_name)
+
+
+# ============================================================================
+# OPTIMIZATION QUERY LOGGING
+# ============================================================================
+
+def init_optimization_queries_table():
+    """Create optimization_queries table if it doesn't exist."""
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS optimization_queries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                site_name TEXT NOT NULL,
+                user_query TEXT NOT NULL,
+                status TEXT DEFAULT 'incomplete',  -- 'incomplete', 'approved', 'rejected'
+                recommendation_summary TEXT,
+                kpi_issue TEXT,
+                parameters_recommended TEXT,       -- JSON of recommended changes
+                validation_status TEXT,
+                execution_result TEXT
+            )
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_queries_timestamp 
+            ON optimization_queries(timestamp DESC)
+        """)
+        
+        cursor.execute("""
+            CREATE INDEX IF NOT EXISTS idx_queries_site 
+            ON optimization_queries(site_name)
+        """)
+        
+        conn.commit()
+        conn.close()
+        logger.info("optimization_queries table initialized")
+        
+    except Exception as e:
+        logger.error(f"Error creating optimization_queries table: {e}")
+
+
+def log_optimization_query(
+    site_name: str,
+    user_query: str,
+    status: str = "incomplete",
+    recommendation_summary: str = None,
+    kpi_issue: str = None,
+    parameters_recommended: str = None,
+    validation_status: str = None,
+    execution_result: str = None
+) -> int:
+    """
+    Log an optimization query to the database.
+    
+    Args:
+        site_name: Name of the site
+        user_query: The user's optimization query
+        status: 'incomplete', 'approved', or 'rejected'
+        recommendation_summary: Summary of the recommendation
+        kpi_issue: Detected KPI issue
+        parameters_recommended: JSON string of recommended parameters
+        validation_status: Validation result
+        execution_result: Execution result
+    
+    Returns:
+        ID of the inserted record, or -1 on error
+    """
+    try:
+        # Ensure table exists
+        init_optimization_queries_table()
+        
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("""
+            INSERT INTO optimization_queries (
+                site_name, user_query, status, recommendation_summary,
+                kpi_issue, parameters_recommended, validation_status, execution_result
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            site_name, user_query, status, recommendation_summary,
+            kpi_issue, parameters_recommended, validation_status, execution_result
+        ))
+        
+        query_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Logged optimization query {query_id}: {site_name} - {status}")
+        return query_id
+        
+    except Exception as e:
+        logger.error(f"Error logging optimization query: {e}")
+        return -1
+
+
+def update_optimization_query_status(
+    query_id: int,
+    status: str,
+    recommendation_summary: str = None,
+    kpi_issue: str = None,
+    parameters_recommended: str = None,
+    validation_status: str = None,
+    execution_result: str = None
+):
+    """
+    Update the status of an existing optimization query.
+    
+    Args:
+        query_id: ID of the query to update
+        status: New status ('incomplete', 'approved', 'rejected')
+        Other fields: Optional updates to other fields
+    """
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # Build dynamic update query
+        updates = ["status = ?"]
+        values = [status]
+        
+        if recommendation_summary is not None:
+            updates.append("recommendation_summary = ?")
+            values.append(recommendation_summary)
+        if kpi_issue is not None:
+            updates.append("kpi_issue = ?")
+            values.append(kpi_issue)
+        if parameters_recommended is not None:
+            updates.append("parameters_recommended = ?")
+            values.append(parameters_recommended)
+        if validation_status is not None:
+            updates.append("validation_status = ?")
+            values.append(validation_status)
+        if execution_result is not None:
+            updates.append("execution_result = ?")
+            values.append(execution_result)
+        
+        values.append(query_id)
+        
+        query = f"UPDATE optimization_queries SET {', '.join(updates)} WHERE id = ?"
+        cursor.execute(query, values)
+        
+        conn.commit()
+        conn.close()
+        
+        logger.info(f"Updated optimization query {query_id} to status: {status}")
+        
+    except Exception as e:
+        logger.error(f"Error updating optimization query {query_id}: {e}")

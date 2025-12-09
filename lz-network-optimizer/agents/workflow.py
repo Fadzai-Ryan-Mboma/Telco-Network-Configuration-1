@@ -9,13 +9,13 @@ from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 import logging
 
-# Import all agents
-from network_connector_agent import network_connector_agent
-from monitoring_agent import monitoring_agent
-from kpi_analytics_agent import kpi_analytics_agent
-from config_agent import config_agent
-from validation_agent import validation_agent
-from mml_executor_agent import mml_executor_agent
+# Import all agents (relative imports from agents package)
+from .network_connector_agent import network_connector_agent
+from .monitoring_agent import monitoring_agent
+from .kpi_analytics_agent import kpi_analytics_agent
+from .config_agent import config_agent
+from .validation_agent import validation_agent
+from .mml_executor_agent import mml_executor_agent
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -207,12 +207,14 @@ def run_optimization(site_name: str, user_query: str = "Optimize network perform
     config = {"configurable": {"thread_id": f"{site_name}_{cell_id}"}}
 
     try:
-        final_state = None
-        for state in app.stream(initial_state, config):
-            logger.info(f"Workflow step completed: {list(state.keys())}")
-            final_state = state
+        # Use invoke instead of stream to get complete final state
+        final_state = app.invoke(initial_state, config)
 
         logger.info("Optimization workflow completed successfully")
+        logger.info(f"Final state keys: {list(final_state.keys())}")
+        logger.info(f"Needs optimization: {final_state.get('needs_optimization', False)}")
+        logger.info(f"Validation status: {final_state.get('validation_status', 'N/A')}")
+
         return final_state
 
     except Exception as e:

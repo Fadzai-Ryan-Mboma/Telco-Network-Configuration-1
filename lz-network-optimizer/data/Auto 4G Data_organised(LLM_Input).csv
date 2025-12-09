@@ -1,0 +1,27 @@
+CM Config Parameter,Value,RACH SSR [%],UL Throughput [Mbps],HO SR [%],CDR [%],DL Throughput [Mbps],DL BLER [%],UL BLER [%],RSRP [%],UL SINR [dB],Ping-Pong HO [%],HO Interruption Time [ms],CCE Utilization [%],DL Interference [dBm],UL Interference Rise [dB],TA  [%],Avg HO Distance [m],RLF Recovery Time [s],PUCCH Utilization [%],RSRP(DT) [dBm],RSRQ(DT) [dB],CQI(DT) [%]
+Reference Signal Power (PDSCHCFG(0.1 dBm) ),152,96.0%,,,,,92.0%,,85.0%,,,,,-98.0,,,,,,-90.0,-8.2,13.8
+Reference Signal Power (PDSCHCFG(0.1 dBm) ),130,97.5%,,,,,93.5%,,80.0%,,,,,-100.0,,,,,,-91.5,-8.4,14.0
+Reference Signal Power (PDSCHCFG(0.1 dBm) ),120,98.2%,,,,,94.2%,,76.0%,,,,,-101.5,,,,,,-92.5,-8.5,14.1
+Reference Signal Power (PDSCHCFG(0.1 dBm) ),164,95.0%,,,,,91.0%,,87.0%,,,,,-97.0,,,,,,-89.0,-8.0,13.5
+Reference Signal Power (PDSCHCFG(0.1 dBm) ),140,96.8%,,,,,,,82.0%,,,,,-99.5,,,,,,-90.8,-8.3,13.9
+P0_NominalPUSCH(Uplink nominal power offset),1000,,7.5,,,,,86.0%,,15.0,,,,,,,,,,-94.0,-9.5,10.5
+P0_NominalPUSCH(Uplink nominal power offset),1050,,8.9,,,,,91.0%,,13.2,,,,,Rise=+0.8,,,,,-93.0,-9.8,11.8
+P0_NominalPUSCH(Uplink nominal power offset),1100,,9.6,,,,,94.0%,,12.0,,,,,Rise=+0.6,,,,,-92.5,-10.0,12.4
+P0_NominalPUSCH(Uplink nominal power offset),1150,,10.0,,,,,95.0%,,11.0,,,,,Rise=+0.5,,,,,-92.2,-10.2,12.7
+Reference Signal Power (RS Power),140,93.0%,,,,16.2,,,88.0%,,,,,,,5.0%,,,,-91.0,-8.0,13.2
+Reference Signal Power (RS Power),120,97.0%,,,,17.0,,,81.0%,,,,,,,3.0%,,,,-93.0,-8.5,13.5
+Reference Signal Power (RS Power),100,98.5%,,,,17.3,,,75.0%,,,,,,,2.0%,,,,-94.5,-8.8,13.6
+Reference Signal Power (RS Power),80,99.0%,,,,17.4,,,70.0%,,,,,,,1.5%,,,,-95.5,-8.9,13.6
+A3 Event Offset(Intra-frequency HO threshold),3,,,89.0%,1.90%,,,,,,2.5%,89.0,,,,,500,,,-90.0,-8.7,14.2
+A3 Event Offset(Intra-frequency HO threshold),2,,,94.0%,1.50%,,,,,,4.1%,94.0,,,,,450,,,-90.5,-8.5,14.6
+A3 Event Offset(Intra-frequency HO threshold),1,,,96.0%,1.30%,,,,,,5.6%,96.0,,,,,420,,,-91.0,-8.4,14.7
+A3 Event Offset(Intra-frequency HO threshold),0,,,96.5%,1.20%,,,,,,6.9%,96.5,,,,,400,,,-91.2,-8.4,14.7
+T310 Timer(RLF detection),1000,,,91.0%,1.80%,,,,,,,90.0,,,,,,1.8,,-89.0,-8.1,14.0
+T310 Timer(RLF detection),1500,,,93.0%,1.20%,,,,,,,110.0,,,,,,2.0,,-89.0,-8.0,14.1
+T310 Timer(RLF detection),2000,,,94.0%,1.00%,,,,,,,125.0,,,,,,2.2,,-89.0,-8.0,14.1
+T310 Timer(RLF detection),2500,,,94.2%,0.95%,,,,,,,140.0,,,,,,2.4,,-89.0,-8.0,14.1
+PDCCH Aggregation Level,Level4,,,,,18.5,90.0%,,,,,,72.0%,,,,,,22.0%,-88.0,-7.9,15.0
+PDCCH Aggregation Level,Level2,,,,,20.3,93.0%,,,,,,79.0%,,,,,,24.0%,-88.0,-7.8,15.4
+PDCCH Aggregation Level,Level1,,,,,21.0,94.0%,,,,,,84.0%,,,,,,25.0%,-88.0,-7.8,15.5
+PDCCH Aggregation Level,Level0,,,,,21.3,94.3%,,,,,,88.0%,,,,,,26.0%,-88.0,-7.8,15.5
+,,,,,,,,,,,,,,,,,,,,,,

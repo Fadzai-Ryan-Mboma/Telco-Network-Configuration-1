@@ -30,9 +30,13 @@ urllib3==2.5.0
 # Data Processing
 pandas==2.3.2
 
-# UI Framework (Phase 3)
-streamlit>=1.30.0
+# UI Framework (Phase 3) - Requires 1.33+ for @st.fragment support
+streamlit>=1.37.0
 plotly>=5.17.0
+
+# FastAPI Backend (Phase 3)
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
 
 # Database (SQLite3 is included in Python standard library)
 # No additional package needed for sqlite3

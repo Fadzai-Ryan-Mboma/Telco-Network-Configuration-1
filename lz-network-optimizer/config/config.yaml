@@ -88,7 +88,7 @@ agents:
   # 6. MML Executor Agent
   mml_executor:
     enabled: true
-    dry_run: false  # Set to true to prevent actual MML execution
+    dry_run: true  # Set to true to prevent actual MML execution
     command_logging: true
     rollback_support: true
     execution_timeout: 60
@@ -147,8 +147,8 @@ logging:
     enabled: true
     log_state_transitions: true
     log_tool_calls: true
-    log_llm_prompts: false  # Set to true for debugging
-    log_llm_responses: false
+    log_llm_prompts: true  # Shows full prompts sent to NVIDIA AI
+    log_llm_responses: true  # Shows full responses from NVIDIA AI
 
 # ============================================================================
 # UI Configuration
@@ -204,3 +204,54 @@ system:
   require_user_approval: false  # Require approval for parameter changes
   auto_rollback: true  # Auto-rollback on failures
   rollback_timeout: 300  # seconds
+
+# ============================================================================
+# Demo Mode Configuration (PHASE 5 - Demo Ready)
+# ============================================================================
+demo:
+  # Master demo mode toggle - enables all fallback mechanisms
+  enabled: true
+
+  # Fallback behavior configuration
+  fallback:
+    # Timeout settings for LLM calls (prevent 5-minute hangs)
+    llm_timeout_seconds:
+      monitoring: 30
+      kpi_analytics: 45
+      configuration: 45
+      validation: 30
+      mml_executor: 60
+
+    # Enable fallback mechanisms for each agent
+    use_fallbacks:
+      monitoring: true      # 3-tier: LLM → Direct DB → User Intent
+      kpi_analytics: true   # 3-tier: LLM → Direct DB → Dummy
+      configuration: true   # 2-tier: LLM → Rule-based
+      validation: true      # 2-tier: LLM → Rule-based (always APPROVED)
+
+    # Dummy data preferences (for Tier 3 fallbacks)
+    dummy_data:
+      use_realistic_values: true    # Use real KPI data to select scenarios
+      default_scenario: "low_download_speed"  # Fallback scenario if detection fails
+      always_approve_validation: true  # Demo mode always approves changes
+
+    # Success rate targets
+    target_completion_rate: 99  # % of workflows that should complete successfully
+    target_response_time_seconds: 60  # Target response time when using fallbacks
+
+  # Progress tracking for demo
+  progress_indicators:
+    show_agent_status: true       # Show which agent is currently running
+    show_fallback_usage: true     # Indicate when fallback was used
+    show_completion_percentage: true  # Show workflow progress (0-100%)
+
+  # Demo data preloading (optional - for faster demos)
+  preload:
+    enabled: false
+    sites: ["MSH-0014-Chipadze", "MSH-0015-Mutoko", "MSH-0016-Guruve"]
+
+  # Demo metrics tracking
+  metrics:
+    track_fallback_usage: true    # Log how often each fallback tier is used
+    track_completion_rate: true   # Log success vs. failure rate
+    track_response_times: true    # Log timing for each agent

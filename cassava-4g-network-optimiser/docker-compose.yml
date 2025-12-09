@@ -1,0 +1,235 @@
+# Cassava 4G Network Optimizer - Docker Compose Configuration
+# Branding: Navy #001D58, Green #00F19C, Purple #964BEA
+#
+# Usage:
+#   Development: docker-compose up
+#   Production:  docker-compose --profile production up
+#   With rebuild: docker-compose up --build
+
+version: '3.9'
+
+services:
+  # ==========================================================================
+  # Main Application - Streamlit UI
+  # ==========================================================================
+  optimizer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cassava-4g-optimizer:latest
+    container_name: cassava-optimizer
+    restart: unless-stopped
+    
+    ports:
+      - "8501:8501"
+    
+    environment:
+      # Application Configuration
+      - CASSAVA_ENV=production
+      - CASSAVA_LOG_LEVEL=INFO
+      - CASSAVA_LOG_FORMAT=json
+      
+      # Database Configuration
+      - CASSAVA_DATABASE_URL=sqlite+aiosqlite:///data/cassava_network.db
+      
+      # NVIDIA NIM Configuration (set in .env file)
+      - CASSAVA_NIM_API_KEY=${NIM_API_KEY:-}
+      - CASSAVA_NIM_BASE_URL=${NIM_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      - CASSAVA_NIM_MODEL=${NIM_MODEL:-meta/llama-3.1-70b-instruct}
+      
+      # Huawei iMaster MAE Configuration (set in .env file)
+      - CASSAVA_MAE_HOST=${MAE_HOST:-}
+      - CASSAVA_MAE_USERNAME=${MAE_USERNAME:-}
+      - CASSAVA_MAE_PASSWORD=${MAE_PASSWORD:-}
+      
+      # Streamlit Configuration
+      - STREAMLIT_SERVER_PORT=8501
+      - STREAMLIT_SERVER_ADDRESS=0.0.0.0
+      - STREAMLIT_SERVER_HEADLESS=true
+      - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - STREAMLIT_THEME_BASE=dark
+    
+    volumes:
+      # Bind mount for local data (includes CSV files)
+      - ./data:/app/data
+      - cassava-logs:/app/logs
+      - cassava-reports:/app/reports
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    networks:
+      - cassava-network
+    
+    labels:
+      - "com.cassava.service=optimizer"
+      - "com.cassava.version=1.0.0"
+
+  # ==========================================================================
+  # Database Initialization Job (run once)
+  # ==========================================================================
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cassava-4g-optimizer:latest
+    container_name: cassava-db-init
+    
+    command: ["python", "-m", "cassava_optimizer.scripts.init_db"]
+    
+    environment:
+      - CASSAVA_DATABASE_URL=sqlite+aiosqlite:///data/cassava_network.db
+      - CASSAVA_LOG_LEVEL=INFO
+    
+    volumes:
+      - cassava-data:/app/data
+    
+    networks:
+      - cassava-network
+    
+    profiles:
+      - init
+    
+    labels:
+      - "com.cassava.service=db-init"
+
+  # ==========================================================================
+  # CLI Runner (for batch operations)
+  # ==========================================================================
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cassava-4g-optimizer:latest
+    container_name: cassava-cli
+    
+    entrypoint: ["python", "-m"]
+    command: ["cassava_optimizer.scripts.run", "--help"]
+    
+    environment:
+      - CASSAVA_ENV=production
+      - CASSAVA_DATABASE_URL=sqlite+aiosqlite:///data/cassava_network.db
+      - CASSAVA_NIM_API_KEY=${NIM_API_KEY:-}
+      - CASSAVA_NIM_BASE_URL=${NIM_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      - CASSAVA_MAE_HOST=${MAE_HOST:-}
+      - CASSAVA_MAE_USERNAME=${MAE_USERNAME:-}
+      - CASSAVA_MAE_PASSWORD=${MAE_PASSWORD:-}
+    
+    volumes:
+      - cassava-data:/app/data
+      - cassava-logs:/app/logs
+      - cassava-reports:/app/reports
+    
+    networks:
+      - cassava-network
+    
+    profiles:
+      - cli
+    
+    labels:
+      - "com.cassava.service=cli"
+
+  # ==========================================================================
+  # Test Runner (for running tests)
+  # ==========================================================================
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cassava-4g-optimizer:latest
+    container_name: cassava-tests
+    
+    command: ["python", "-m", "pytest", "tests/", "-v", "--tb=short"]
+    
+    environment:
+      CASSAVA_ENV: testing
+      CASSAVA_DATABASE_URL: "sqlite+aiosqlite:///:memory:"
+      CASSAVA_LOG_LEVEL: DEBUG
+    
+    volumes:
+      - ./tests:/app/tests:ro
+    
+    networks:
+      - cassava-network
+    
+    profiles:
+      - testing
+    
+    labels:
+      - "com.cassava.service=tests"
+
+# ==========================================================================
+# Networks
+# ==========================================================================
+networks:
+  cassava-network:
+    driver: bridge
+    name: cassava-network
+    labels:
+      - "com.cassava.network=main"
+
+# ==========================================================================
+# Volumes
+# ==========================================================================
+volumes:
+  cassava-data:
+    driver: local
+    name: cassava-data
+    labels:
+      - "com.cassava.volume=data"
+  
+  cassava-logs:
+    driver: local
+    name: cassava-logs
+    labels:
+      - "com.cassava.volume=logs"
+  
+  cassava-reports:
+    driver: local
+    name: cassava-reports
+    labels:
+      - "com.cassava.volume=reports"
+
+# ==========================================================================
+# Usage Examples:
+# ==========================================================================
+#
+# 1. Start the main application:
+#    docker-compose up -d
+#
+# 2. Initialize the database (first time only):
+#    docker-compose --profile init run --rm db-init
+#
+# 3. Run CLI commands:
+#    docker-compose --profile cli run --rm cli optimize --site-id SITE001
+#    docker-compose --profile cli run --rm cli init-db
+#
+# 4. Run tests:
+#    docker-compose --profile testing run --rm tests
+#
+# 5. View logs:
+#    docker-compose logs -f optimizer
+#
+# 6. Stop all services:
+#    docker-compose down
+#
+# 7. Stop and remove volumes:
+#    docker-compose down -v
+#
+# ==========================================================================
+# Environment Variables (.env file):
+# ==========================================================================
+#
+# Create a .env file in the same directory with:
+#
+# NIM_API_KEY=nvapi-xxxxx
+# NIM_BASE_URL=https://integrate.api.nvidia.com/v1
+# NIM_MODEL=meta/llama-3.1-70b-instruct
+# MAE_HOST=https://mae.example.com
+# MAE_USERNAME=admin
+# MAE_PASSWORD=secret
+#

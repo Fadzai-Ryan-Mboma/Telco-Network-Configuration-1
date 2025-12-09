@@ -1,0 +1,170 @@
+# ============================================================================
+# Cassava 4G Network Optimiser - Logging Configuration
+# ============================================================================
+# Structured logging configuration using structlog
+# ============================================================================
+
+version: 1
+disable_existing_loggers: false
+
+# ----------------------------------------------------------------------------
+# Formatters
+# ----------------------------------------------------------------------------
+formatters:
+  json:
+    class: structlog.stdlib.ProcessorFormatter
+    processor: structlog.processors.JSONRenderer
+    foreign_pre_chain:
+      - structlog.stdlib.add_log_level
+      - structlog.stdlib.add_logger_name
+      - structlog.processors.TimeStamper(fmt="iso")
+      - structlog.processors.StackInfoRenderer
+      - structlog.processors.format_exc_info
+      
+  console:
+    class: structlog.stdlib.ProcessorFormatter
+    processor: structlog.dev.ConsoleRenderer(colors=true)
+    foreign_pre_chain:
+      - structlog.stdlib.add_log_level
+      - structlog.stdlib.add_logger_name
+      - structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S")
+      - structlog.processors.StackInfoRenderer
+      - structlog.processors.format_exc_info
+
+# ----------------------------------------------------------------------------
+# Handlers
+# ----------------------------------------------------------------------------
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: console
+    stream: ext://sys.stdout
+    
+  file_json:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/cassava_optimizer.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+    
+  file_error:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: json
+    filename: logs/cassava_optimizer_error.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 10
+    encoding: utf-8
+    
+  agent_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: logs/agents.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+    
+  api_file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: json
+    filename: logs/api_calls.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+
+# ----------------------------------------------------------------------------
+# Loggers
+# ----------------------------------------------------------------------------
+loggers:
+  cassava_optimizer:
+    level: DEBUG
+    handlers:
+      - console
+      - file_json
+      - file_error
+    propagate: false
+    
+  cassava_optimizer.agents:
+    level: DEBUG
+    handlers:
+      - console
+      - agent_file
+      - file_error
+    propagate: false
+    
+  cassava_optimizer.infrastructure.huawei_client:
+    level: DEBUG
+    handlers:
+      - console
+      - api_file
+    propagate: false
+    
+  cassava_optimizer.infrastructure.llm_client:
+    level: DEBUG
+    handlers:
+      - console
+      - api_file
+    propagate: false
+    
+  # Third-party loggers
+  httpx:
+    level: WARNING
+    handlers:
+      - console
+    propagate: false
+    
+  httpcore:
+    level: WARNING
+    handlers:
+      - console
+    propagate: false
+    
+  sqlalchemy:
+    level: WARNING
+    handlers:
+      - console
+    propagate: false
+    
+  langchain:
+    level: INFO
+    handlers:
+      - console
+    propagate: false
+    
+  langgraph:
+    level: INFO
+    handlers:
+      - console
+    propagate: false
+
+# ----------------------------------------------------------------------------
+# Root Logger
+# ----------------------------------------------------------------------------
+root:
+  level: INFO
+  handlers:
+    - console
+    - file_json
+
+# ----------------------------------------------------------------------------
+# Structlog Configuration
+# ----------------------------------------------------------------------------
+structlog:
+  processors:
+    - structlog.stdlib.filter_by_level
+    - structlog.stdlib.add_logger_name
+    - structlog.stdlib.add_log_level
+    - structlog.stdlib.PositionalArgumentsFormatter
+    - structlog.processors.TimeStamper(fmt="iso")
+    - structlog.processors.StackInfoRenderer
+    - structlog.processors.format_exc_info
+    - structlog.processors.UnicodeDecoder
+    - structlog.stdlib.ProcessorFormatter.wrap_for_formatter
+  context_class: dict
+  logger_factory: structlog.stdlib.LoggerFactory
+  cache_logger_on_first_use: true

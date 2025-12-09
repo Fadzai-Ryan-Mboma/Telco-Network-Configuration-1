@@ -1,0 +1,234 @@
+# ============================================================================
+# Cassava 4G Network Optimiser - KPI Weights Configuration
+# ============================================================================
+# 3-Tier KPI Weighting System for Network Optimization
+# 
+# Tier Distribution:
+#   - Foundation KPIs (25%): Core network stability metrics
+#   - Revenue/Experience KPIs (50%): User experience and revenue impact
+#   - Efficiency KPIs (25%): Resource utilization optimization
+# ============================================================================
+
+version: "1.0"
+last_updated: "2024-01-01"
+
+# ----------------------------------------------------------------------------
+# Foundation Tier (25% of total weight)
+# Critical metrics that must be stable before optimizing others
+# ----------------------------------------------------------------------------
+foundation:
+  weight: 0.25
+  description: "Core network stability metrics - must be healthy before other optimizations"
+  kpis:
+    rrc_setup_success_rate:
+      name: "RRC Setup Success Rate"
+      weight: 0.40
+      unit: "percent"
+      threshold:
+        critical: 95.0
+        warning: 98.0
+        target: 99.5
+      direction: "higher_is_better"
+      description: "Radio Resource Control connection setup success rate"
+      
+    erab_setup_success_rate:
+      name: "E-RAB Setup Success Rate"
+      weight: 0.40
+      unit: "percent"
+      threshold:
+        critical: 95.0
+        warning: 98.0
+        target: 99.5
+      direction: "higher_is_better"
+      description: "E-UTRAN Radio Access Bearer setup success rate"
+      
+    cell_availability:
+      name: "Cell Availability"
+      weight: 0.20
+      unit: "percent"
+      threshold:
+        critical: 99.0
+        warning: 99.5
+        target: 99.9
+      direction: "higher_is_better"
+      description: "Percentage of time cell is operational"
+
+# ----------------------------------------------------------------------------
+# Revenue/Experience Tier (50% of total weight)
+# User experience metrics that directly impact revenue
+# ----------------------------------------------------------------------------
+revenue_experience:
+  weight: 0.50
+  description: "User experience metrics with direct revenue impact"
+  kpis:
+    dl_throughput:
+      name: "Downlink Throughput"
+      weight: 0.25
+      unit: "mbps"
+      threshold:
+        critical: 5.0
+        warning: 10.0
+        target: 20.0
+      direction: "higher_is_better"
+      description: "Average downlink user throughput"
+      
+    ul_throughput:
+      name: "Uplink Throughput"
+      weight: 0.15
+      unit: "mbps"
+      threshold:
+        critical: 2.0
+        warning: 5.0
+        target: 10.0
+      direction: "higher_is_better"
+      description: "Average uplink user throughput"
+      
+    latency:
+      name: "User Plane Latency"
+      weight: 0.20
+      unit: "ms"
+      threshold:
+        critical: 50.0
+        warning: 30.0
+        target: 15.0
+      direction: "lower_is_better"
+      description: "Round-trip latency for user plane data"
+      
+    handover_success_rate:
+      name: "Handover Success Rate"
+      weight: 0.20
+      unit: "percent"
+      threshold:
+        critical: 95.0
+        warning: 98.0
+        target: 99.5
+      direction: "higher_is_better"
+      description: "Inter-cell handover success rate"
+      
+    volte_drop_rate:
+      name: "VoLTE Call Drop Rate"
+      weight: 0.10
+      unit: "percent"
+      threshold:
+        critical: 2.0
+        warning: 1.0
+        target: 0.5
+      direction: "lower_is_better"
+      description: "Voice over LTE call drop percentage"
+      
+    csfb_success_rate:
+      name: "CSFB Success Rate"
+      weight: 0.10
+      unit: "percent"
+      threshold:
+        critical: 95.0
+        warning: 98.0
+        target: 99.0
+      direction: "higher_is_better"
+      description: "Circuit Switched Fallback success rate"
+
+# ----------------------------------------------------------------------------
+# Efficiency Tier (25% of total weight)
+# Resource utilization and spectral efficiency
+# ----------------------------------------------------------------------------
+efficiency:
+  weight: 0.25
+  description: "Resource utilization optimization metrics"
+  kpis:
+    dl_prb_utilization:
+      name: "DL PRB Utilization"
+      weight: 0.25
+      unit: "percent"
+      threshold:
+        critical: 90.0
+        warning: 80.0
+        target: 70.0
+      direction: "target_range"
+      target_range:
+        min: 50.0
+        max: 75.0
+      description: "Downlink Physical Resource Block utilization"
+      
+    ul_prb_utilization:
+      name: "UL PRB Utilization"
+      weight: 0.20
+      unit: "percent"
+      threshold:
+        critical: 85.0
+        warning: 75.0
+        target: 65.0
+      direction: "target_range"
+      target_range:
+        min: 40.0
+        max: 70.0
+      description: "Uplink Physical Resource Block utilization"
+      
+    spectral_efficiency:
+      name: "Spectral Efficiency"
+      weight: 0.25
+      unit: "bps/hz"
+      threshold:
+        critical: 1.5
+        warning: 2.0
+        target: 3.0
+      direction: "higher_is_better"
+      description: "Bits per second per Hz efficiency"
+      
+    power_consumption:
+      name: "Power Efficiency"
+      weight: 0.15
+      unit: "watts_per_mbps"
+      threshold:
+        critical: 100.0
+        warning: 75.0
+        target: 50.0
+      direction: "lower_is_better"
+      description: "Power consumption per Mbps throughput"
+      
+    active_ue_count:
+      name: "Active UE Count"
+      weight: 0.15
+      unit: "count"
+      threshold:
+        info: 500
+        warning: 800
+        critical: 1000
+      direction: "informational"
+      description: "Number of active user equipment connections"
+
+# ----------------------------------------------------------------------------
+# Composite Score Calculation Rules
+# ----------------------------------------------------------------------------
+scoring:
+  method: "weighted_average"
+  normalization: "min_max"
+  aggregation_rules:
+    - name: "tier_first"
+      description: "Calculate tier scores first, then aggregate"
+    - name: "penalty_for_critical"
+      penalty_multiplier: 0.5
+      description: "Apply 50% penalty to overall score if any KPI is critical"
+    - name: "foundation_gate"
+      description: "Foundation tier must be above threshold before other tiers count"
+      foundation_minimum: 0.90
+
+# ----------------------------------------------------------------------------
+# Alert Configuration
+# ----------------------------------------------------------------------------
+alerts:
+  enabled: true
+  channels:
+    - type: "log"
+      level: "warning"
+    - type: "ui"
+      display: true
+  thresholds:
+    critical:
+      action: "immediate_alert"
+      color: "#FF4444"
+    warning:
+      action: "log_and_display"
+      color: "#FFAA00"
+    target:
+      action: "monitor"
+      color: "#00CC00"

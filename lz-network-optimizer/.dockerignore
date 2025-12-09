@@ -94,7 +94,7 @@ logs/
 # ============================================================================
 # Docker Files (avoid recursive inclusion)
 # ============================================================================
-docker/
+# docker/  # Commented out - need entrypoint.sh and healthcheck.py
 Dockerfile
 docker-compose*.yml
 .dockerignore

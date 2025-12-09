@@ -38,23 +38,15 @@ def run_optimization(site_name: str, cell_id: int, user_query: str) -> Dict[str,
         # Import workflow (inside function to avoid issues if not in path)
         from agents.workflow import run_optimization as run_workflow
 
-        # Prepare initial state
-        initial_state = {
-            "site_name": site_name,
-            "cell_id": cell_id,
-            "user_query": user_query,
-            "agent_outputs": {},
-            "data_source": "unknown",
-            "needs_optimization": False,
-            "primary_kpi_issue": None,
-            "config_output": "",
-            "validation_status": "PENDING",
-            "optimization_success": False
-        }
-
-        # Run the workflow
+        # Run the workflow with individual arguments (not a dict!)
+        # The workflow function expects: site_name: str, user_query: str, cell_id: int
         logger.info(f"Starting optimization workflow for {site_name}")
-        result_state = run_workflow(initial_state)
+        logger.info(f"User query: {user_query}")
+        result_state = run_workflow(
+            site_name=site_name,
+            user_query=user_query,
+            cell_id=cell_id
+        )
 
         # Parse results into UI-friendly format
         return parse_workflow_results(result_state)
@@ -141,6 +133,9 @@ def parse_workflow_results(state: Dict[str, Any]) -> Dict[str, Any]:
 
     # Extract expected impact
     expected_impact = extract_expected_impact(config_output)
+    
+    # Parse detailed sections from config_output
+    detailed_sections = parse_detailed_sections(config_output)
 
     return {
         "status": "success",
@@ -150,7 +145,11 @@ def parse_workflow_results(state: Dict[str, Any]) -> Dict[str, Any]:
         "risk_score": risk_score,
         "expected_impact": expected_impact,
         "mml_commands": mml_commands,
-        "validation_status": validation_status
+        "validation_status": validation_status,
+        "detailed_issue": detailed_sections.get("issue", issue_desc),
+        "detailed_recommendations": detailed_sections.get("recommendations", ""),
+        "detailed_risk": detailed_sections.get("risk", ""),
+        "detailed_impact": detailed_sections.get("impact", expected_impact)
     }
 
 
@@ -290,3 +289,186 @@ def extract_expected_impact(config_output: str) -> str:
 
     # Default impact message
     return "Expected improvement in network KPIs based on parameter optimization"
+
+
+def parse_detailed_sections(config_output: str) -> Dict[str, str]:
+    """
+    Parse the detailed technical sections from configuration output.
+    
+    Extracts content from:
+    - ISSUE IDENTIFIED
+    - RECOMMENDED CHANGES
+    - RISK ASSESSMENT
+    - EXPECTED IMPACT
+    
+    Args:
+        config_output: Raw configuration output with technical sections
+        
+    Returns:
+        Dictionary with parsed sections
+    """
+    sections = {
+        "issue": "",
+        "recommendations": "",
+        "risk": "",
+        "impact": ""
+    }
+    
+    if not config_output:
+        return sections
+    
+    lines = config_output.split('\n')
+    current_section = None
+    section_content = []
+    
+    for line in lines:
+        # Check for section headers
+        if "ISSUE IDENTIFIED" in line:
+            if current_section and section_content:
+                sections[current_section] = '\n'.join(section_content).strip()
+            current_section = "issue"
+            section_content = []
+        elif "RECOMMENDED CHANGES" in line:
+            if current_section and section_content:
+                sections[current_section] = '\n'.join(section_content).strip()
+            current_section = "recommendations"
+            section_content = []
+        elif "RISK ASSESSMENT" in line:
+            if current_section and section_content:
+                sections[current_section] = '\n'.join(section_content).strip()
+            current_section = "risk"
+            section_content = []
+        elif "EXPECTED IMPACT" in line:
+            if current_section and section_content:
+                sections[current_section] = '\n'.join(section_content).strip()
+            current_section = "impact"
+            section_content = []
+        elif "EXECUTION MODE" in line or "NEXT STEP" in line:
+            # End of impact section
+            if current_section and section_content:
+                sections[current_section] = '\n'.join(section_content).strip()
+            break
+        elif current_section and line.strip() and not line.startswith('━'):
+            # Add content to current section (skip separator lines)
+            section_content.append(line)
+    
+    # Capture last section if any
+    if current_section and section_content:
+        sections[current_section] = '\n'.join(section_content).strip()
+    
+    return sections
+
+
+def execute_optimization(site_name: str, recommendations: list, mml_commands: list) -> Dict[str, Any]:
+    """
+    Execute approved optimization recommendations.
+
+    Args:
+        site_name: Name of the site
+        recommendations: List of approved parameter changes
+        mml_commands: List of MML commands to execute
+
+    Returns:
+        Dict with execution results:
+        - status: "success", "partial", "error"
+        - executed: Number of commands executed
+        - failed: Number of commands failed
+        - details: List of execution details per command
+        - message: Summary message
+    """
+    try:
+        # Import tools
+        from tools.rollback_manager import capture_rollback_state
+        from agents.mml_executor_agent import mml_executor_agent
+
+        logger.info(f"Executing optimization for {site_name}")
+        logger.info(f"Commands to execute: {len(mml_commands)}")
+
+        # Check if in dry-run mode
+        import yaml
+        config_path = Path(__file__).parent.parent / "config" / "config.yaml"
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        dry_run = config.get('agents', {}).get('mml_executor', {}).get('dry_run', False)
+
+        if dry_run:
+            logger.info("DRY RUN MODE - Simulating execution")
+            return {
+                "status": "success",
+                "executed": len(mml_commands),
+                "failed": 0,
+                "details": [
+                    {"command": cmd, "status": "simulated", "message": "[DRY RUN] Would execute command"}
+                    for cmd in mml_commands
+                ],
+                "message": f"[DRY RUN] Would execute {len(mml_commands)} commands. No actual changes made.",
+                "dry_run": True
+            }
+
+        # Execute with MML executor agent
+        execution_state = {
+            "site_name": site_name,
+            "cell_id": 1,  # Will be handled by batch execution
+            "user_query": "Execute approved optimizations",
+            "config_output": "\n".join(mml_commands),
+            "validation_status": "APPROVED",
+            "is_validated": True,
+            "recommended_changes": recommendations
+        }
+
+        result_state = mml_executor_agent(execution_state)
+
+        # Parse execution results
+        executor_output = result_state.get("executor_output", "")
+
+        # Count successes and failures
+        executed = executor_output.lower().count("success")
+        failed = executor_output.lower().count("fail")
+
+        if failed == 0:
+            status = "success"
+            message = f"Successfully executed {executed} commands"
+        elif executed > 0:
+            status = "partial"
+            message = f"Executed {executed} commands, {failed} failed"
+        else:
+            status = "error"
+            message = f"Failed to execute commands: {executor_output[:200]}"
+
+        return {
+            "status": status,
+            "executed": executed,
+            "failed": failed,
+            "details": parse_execution_details(executor_output),
+            "message": message,
+            "dry_run": False
+        }
+
+    except Exception as e:
+        logger.error(f"Execution error: {e}")
+        return {
+            "status": "error",
+            "executed": 0,
+            "failed": len(mml_commands),
+            "details": [],
+            "message": f"Execution failed: {str(e)}",
+            "dry_run": False
+        }
+
+
+def parse_execution_details(executor_output: str) -> list:
+    """Parse execution details from executor output"""
+    details = []
+
+    # Simple parsing - look for command results in output
+    for line in executor_output.split('\n'):
+        if 'MOD' in line or 'ADD' in line or 'SET' in line:
+            status = "success" if "success" in line.lower() else "failed"
+            details.append({
+                "command": line[:100],
+                "status": status,
+                "message": line
+            })
+
+    return details

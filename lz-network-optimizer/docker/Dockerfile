@@ -2,8 +2,9 @@
 # Liquid Zimbabwe 4G Network Optimizer - Production Dockerfile
 # ============================================================================
 # Base Image: Python 3.11 Slim (Debian-based, optimized for size)
-# Total Image Size: ~600MB (including all dependencies)
+# Total Image Size: ~700MB (including all dependencies)
 # Security: Non-root user execution, minimal attack surface
+# Services: FastAPI (8503) + Streamlit UI (8501)
 # ============================================================================
 
 FROM python:3.11-slim
@@ -11,7 +12,7 @@ FROM python:3.11-slim
 # Metadata
 LABEL maintainer="Liquid Zimbabwe Network Optimization Team"
 LABEL description="AI-powered 4G network optimization using NVIDIA LLMs and LangGraph"
-LABEL version="1.0.0"
+LABEL version="2.1.0"
 
 # ============================================================================
 # System Dependencies
@@ -22,6 +23,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     sqlite3 \
     libsqlite3-dev \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
@@ -42,18 +44,13 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy Application Code
 # ============================================================================
 # Create necessary directories first
-RUN mkdir -p /app/docker
+RUN mkdir -p /app/docker /app/data /app/logs /app/ui /app/api
 
-# First copy all application files
+# Copy all application files
 COPY . /app/
 
-# Create directories for runtime data and ensure proper permissions
-RUN mkdir -p /app/data /app/logs && \
-    chmod +x /app/docker/entrypoint.sh /app/docker/healthcheck.py
-
-# Set the entrypoint script
-ENTRYPOINT ["/app/docker/entrypoint.sh"]
-RUN mkdir -p /app/data /app/logs
+# Ensure proper permissions on scripts
+RUN chmod +x /app/docker/entrypoint.sh /app/docker/healthcheck.py
 
 # ============================================================================
 # Security: Non-Root User
@@ -74,9 +71,9 @@ ENV PYTHONUNBUFFERED=1 \
     TZ=Africa/Harare \
     PATH="/home/lzuser/.local/bin:${PATH}"
 
-# Expose ports (if needed in future for API/UI)
-# EXPOSE 8501  # Streamlit UI (Phase 3)
-# EXPOSE 8000  # FastAPI (Phase 3)
+# Expose ports for API and UI
+EXPOSE 8502
+EXPOSE 8503
 
 # ============================================================================
 # Health Check
@@ -84,9 +81,9 @@ ENV PYTHONUNBUFFERED=1 \
 # Check container health every 30 seconds
 HEALTHCHECK --interval=30s \
             --timeout=10s \
-            --start-period=5s \
+            --start-period=15s \
             --retries=3 \
-    CMD python3 /app/docker/healthcheck.py || exit 1
+    CMD curl -f http://localhost:8503/api/health || exit 1
 
 # ============================================================================
 # Entrypoint & Command
@@ -94,8 +91,8 @@ HEALTHCHECK --interval=30s \
 # Use entrypoint script for initialization
 ENTRYPOINT ["/bin/bash", "/app/docker/entrypoint.sh"]
 
-# Default command: show help
-CMD ["python3", "main.py", "--help"]
+# Default command: Run both API and UI
+CMD ["both"]
 
 # ============================================================================
 # Build Instructions:

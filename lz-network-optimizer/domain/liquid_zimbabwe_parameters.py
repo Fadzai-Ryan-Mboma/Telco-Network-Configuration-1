@@ -1,12 +1,25 @@
 """
 Liquid Zimbabwe Parameter Management System
 Handles the 5 core network parameters for optimization with MML command integration
+
+MML commands are sourced from domain.mml_commands (single source of truth)
 """
 
 import logging
 from typing import Dict, List, Optional, Any, Tuple, Union
 from datetime import datetime
 import sqlite3
+
+# Import MML commands from single source of truth
+from domain.mml_commands import (
+    MML_COMMANDS, 
+    build_query_command,
+    build_query_all_cells,
+    is_global_query as mml_is_global_query,
+    build_modify_command,
+    build_modify_command_template,
+    format_command_response
+)
 
 class LiquidZimbabweParameterManager:
     """Manages the 5 core network parameters for Liquid Zimbabwe"""
@@ -24,6 +37,7 @@ class LiquidZimbabweParameterManager:
         self.logger = logging.getLogger(__name__)
         
         # Parameter configuration based on Configurations.txt
+        # Note: query_command and modify_command are sourced from domain.mml_commands.MML_COMMANDS
         self.parameter_config = {
             "reference_signal_power_pdschcfg": {
                 "technical_name": "Reference Signal Power (PDSCHCFG(0.1 dBm))",
@@ -34,8 +48,6 @@ class LiquidZimbabweParameterManager:
                 "min_value": -600,
                 "max_value": 500,
                 "default_value": -200,
-                "query_command": "LST PDSCHCFG",
-                "modify_command": "MOD PDSCHCFG:LOCALCELLID={cell_id},REFERENCESIGNALPWR={value}; {{{ne_name}}}",
                 "impact": "Higher values increase coverage but may cause interference"
             },
             "reference_signal_power_rs": {
@@ -47,8 +59,6 @@ class LiquidZimbabweParameterManager:
                 "min_value": -600,
                 "max_value": 500,
                 "default_value": -180,
-                "query_command": "LST PDSCHCFG",
-                "modify_command": "MOD PDSCHCFG:LOCALCELLID={cell_id},REFERENCESIGNALPWR={value}; {{{ne_name}}}",
                 "impact": "Main parameter controlling cell footprint and interference"
             },
             "a3_event_offset": {
@@ -60,8 +70,6 @@ class LiquidZimbabweParameterManager:
                 "min_value": 0,
                 "max_value": 15,
                 "default_value": 3,
-                "query_command": "LST UECOOPERATIONPARA", 
-                "modify_command": "MOD UECOOPERATIONPARA:LOCALCELLID={cell_id},A3OFFSET=dB{value}; {{{ne_name}}}",
                 "impact": "Lower values reduce call drops but increase ping-pong handovers"
             },
             "t310_timer": {
@@ -75,8 +83,6 @@ class LiquidZimbabweParameterManager:
                 "default_value": 1000,
                 "valid_values": ["MS100_T310", "MS200_T310", "MS500_T310", "MS1000_T310", 
                                "MS1500_T310", "MS2000_T310", "MS2500_T310", "MS6000_T310"],
-                "query_command": "LST UETIMERCONST",
-                "modify_command": "MOD UETIMERCONST:LOCALCELLID={cell_id},T310={value}; {{{ne_name}}}",
                 "impact": "Longer timers reduce false alarms but delay real failure detection"
             },
             "p0_nominal_pusch": {
@@ -88,8 +94,6 @@ class LiquidZimbabweParameterManager:
                 "min_value": -126,
                 "max_value": 24,
                 "default_value": -70,
-                "query_command": "LST CELLULPCCOMM",
-                "modify_command": "MOD CELLULPCCOMM:LOCALCELLID={cell_id},P0NOMINALPUSCH={value}; {{{ne_name}}}",
                 "impact": "Higher values improve upload quality but increase interference"
             },
             "pdcch_aggregation_level": {
@@ -101,8 +105,6 @@ class LiquidZimbabweParameterManager:
                 "min_value": 0,
                 "max_value": 30,
                 "default_value": 12,
-                "query_command": "LST CELLUSPARACFG",
-                "modify_command": "MOD CELLUSPARACFG:LOCALCELLID={cell_id},USDATAPDCCHSINROFFSET={value}; {{{ne_name}}}",
                 "impact": "Higher levels improve reliability but use more resources"
             }
         }
@@ -229,11 +231,92 @@ class LiquidZimbabweParameterManager:
         self.logger.info(f"Initialized default parameter values for {len(sites)} sites")
     
     def get_parameter_info(self, parameter_name: str) -> Dict:
-        """Get detailed information about a parameter"""
+        """Get detailed information about a parameter.
+        
+        Includes MML command info from centralized MML_COMMANDS.
+        """
         if parameter_name not in self.parameter_config:
             raise ValueError(f"Unknown parameter: {parameter_name}")
         
-        return self.parameter_config[parameter_name].copy()
+        # Get base config
+        config = self.parameter_config[parameter_name].copy()
+        
+        # Add MML command info from centralized source
+        if parameter_name in MML_COMMANDS:
+            mml_info = MML_COMMANDS[parameter_name]
+            config["query_command"] = mml_info.get("query", "")
+            config["modify_command"] = mml_info.get("modify", "")
+            config["query_global"] = mml_info.get("query_global", False)
+            config["parameter_field"] = mml_info.get("parameter_field", "")
+            config["parameter_field_alt"] = mml_info.get("parameter_field_alt", "")
+        
+        return config
+    
+    def get_query_command(self, parameter_name: str, cell_id: int = 1) -> str:
+        """Get the MML query command for a parameter.
+        
+        Uses centralized MML_COMMANDS from domain.mml_commands.
+        
+        Args:
+            parameter_name: Name of the parameter
+            cell_id: Cell ID (ignored for global queries)
+        
+        Returns:
+            Formatted MML query command string
+        """
+        return build_query_command(parameter_name, cell_id)
+    
+    def get_modify_command(self, parameter_name: str, value: Any, cell_id: int = 1) -> str:
+        """Get the MML modify command for a parameter.
+        
+        Uses centralized MML_COMMANDS from domain.mml_commands.
+        
+        Args:
+            parameter_name: Name of the parameter
+            value: New value to set
+            cell_id: Cell ID
+        
+        Returns:
+            Formatted MML modify command string
+        """
+        return build_modify_command(parameter_name, value, cell_id)
+    
+    def is_global_query(self, parameter_name: str) -> bool:
+        """Check if a parameter uses a global query (returns all cells).
+        
+        Args:
+            parameter_name: Name of the parameter
+        
+        Returns:
+            True if the parameter uses a global query
+        """
+        if parameter_name in MML_COMMANDS:
+            return MML_COMMANDS[parameter_name].get("query_global", False)
+        return False
+    
+    def get_query_commands_all_cells(self, parameter_name: str, cell_ids: List[int] = None) -> List[str]:
+        """Get MML query commands for all cells at a site.
+        
+        For global queries (query_global=True), returns a single command that retrieves all cells.
+        For cell-specific queries, returns 6 commands (one per cell).
+        
+        Uses centralized build_query_all_cells from domain.mml_commands.
+        
+        Args:
+            parameter_name: Name of the parameter
+            cell_ids: List of cell IDs to query (default: [1, 2, 3, 4, 5, 6])
+        
+        Returns:
+            List of MML query command strings
+        
+        Example:
+            >>> manager.get_query_commands_all_cells("p0_nominal_pusch")
+            ['LST CELLULPCCOMM: LOCALCELLID=1;', 'LST CELLULPCCOMM: LOCALCELLID=2;', ...]
+            
+            >>> manager.get_query_commands_all_cells("a3_event_offset")  # Global
+            ['LST UECOOPERATIONPARA:;']  # Single command returns all cells
+        """
+        return build_query_all_cells(parameter_name, cell_ids)
     
     def get_all_parameters(self) -> Dict[str, Dict]:
         """Get information about all parameters"""
@@ -276,26 +359,26 @@ class LiquidZimbabweParameterManager:
             return False, "Value must be a number"
     
     def format_mml_command(self, parameter_name: str, cell_id: int, value: Any, ne_name: str) -> str:
-        """Format the MML command for parameter modification"""
+        """Format the MML command for parameter modification.
+        
+        Uses centralized MML_COMMANDS from domain.mml_commands as single source of truth.
+        """
         if parameter_name not in self.parameter_config:
             raise ValueError(f"Unknown parameter: {parameter_name}")
         
-        config = self.parameter_config[parameter_name]
-        
-        # Special formatting for A3 offset
+        # Special formatting for A3 offset - ensure dB prefix for value
         if parameter_name == "a3_event_offset":
-            # Ensure dB prefix
             if not str(value).startswith('dB'):
                 value = f"dB{value}"
         
-        # Format the command
-        command = config["modify_command"].format(
-            cell_id=cell_id,
-            value=value,
-            ne_name=ne_name
-        )
-        
-        return command
+        # Use centralized build_modify_command from mml_commands.py
+        try:
+            base_command = build_modify_command(parameter_name, value, cell_id)
+            # Add ne_name wrapper for Liquid Zimbabwe format
+            return f"{base_command} {{{ne_name}}}"
+        except ValueError:
+            # Fallback for parameters not in MML_COMMANDS
+            raise ValueError(f"No MML command template for parameter: {parameter_name}")
     
     def record_parameter_change(self, site_name: str, cell_id: int, parameter_name: str, 
                               old_value: Any, new_value: Any, change_type: str = "manual",
@@ -748,7 +831,9 @@ class LiquidZimbabweParameterManager:
     
     def generate_mml_command(self, param_name: str, value: float, site_id: str = "SITE_001", cell_id: str = "1") -> str:
         """
-        Generate MML command for parameter modification
+        Generate MML command for parameter modification.
+        
+        Uses centralized MML_COMMANDS from domain.mml_commands as single source of truth.
         
         Args:
             param_name: Parameter name
@@ -762,20 +847,13 @@ class LiquidZimbabweParameterManager:
         if param_name not in self.parameter_config:
             return f"// ERROR: Unknown parameter {param_name}"
         
-        config = self.parameter_config[param_name]
-        command_template = config.get('modify_command', '')
-        
-        if not command_template:
-            return f"// ERROR: No command template for {param_name}"
-        
-        # Format the command with actual values
+        # Use centralized build_modify_command from mml_commands.py
         try:
-            formatted_command = command_template.format(
-                cell_id=cell_id,
-                value=value,
-                ne_name=site_id
-            )
-            return formatted_command
+            base_command = build_modify_command(param_name, value, int(cell_id))
+            # Add ne_name wrapper for Liquid Zimbabwe format
+            return f"{base_command} {{{site_id}}}"
+        except ValueError as e:
+            return f"// ERROR: {e}"
         except Exception as e:
             return f"// ERROR: Command formatting failed for {param_name}: {e}"
     
