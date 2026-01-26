@@ -255,12 +255,13 @@ class CSVDataImporter:
     def _parse_csv(self, csv_path: Path) -> list[dict[str, Any]]:
         """Parse CSV file into list of row dictionaries."""
         rows = []
-        
-        with open(csv_path, "r", encoding="utf-8") as f:
+
+        # Use utf-8-sig to automatically handle BOM (Byte Order Mark)
+        with open(csv_path, "r", encoding="utf-8-sig") as f:
             reader = csv.DictReader(f)
             for row in reader:
                 rows.append(row)
-        
+
         logger.debug(f"Parsed {len(rows)} rows from {csv_path.name}")
         return rows
     
@@ -396,10 +397,16 @@ class CSVDataImporter:
             site_id = enodeb_name.replace(" ", "_").replace("-", "_")
             cell_id = f"{site_id}_cell_{local_cell_id}"
             
-            # Parse date
-            try:
-                timestamp = datetime.strptime(date_str, "%Y-%m-%d")
-            except ValueError:
+            # Parse date - try multiple formats
+            timestamp = None
+            for date_format in ["%Y-%m-%d", "%d/%m/%Y", "%m/%d/%Y"]:
+                try:
+                    timestamp = datetime.strptime(date_str, date_format)
+                    break
+                except ValueError:
+                    continue
+
+            if timestamp is None:
                 logger.warning(f"Invalid date format: {date_str}")
                 continue
             

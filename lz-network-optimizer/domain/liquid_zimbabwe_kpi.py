@@ -82,16 +82,38 @@ class LiquidZimbabweKPIManager:
                 "critical_threshold": 2000
             },
             "upload_speed": {
-                "technical_name": "UL Cell PDCP Layer Average Throughput(kbit/s)", 
+                "technical_name": "UL Cell PDCP Layer Average Throughput(kbit/s)",
                 "user_friendly_name": "Upload Speed",
                 "description": "Average data upload speed (higher is better)",
                 "unit": "kbit/s",
                 "higher_is_better": True,
-                "normal_range": (1000, 8000), 
+                "normal_range": (1000, 8000),
                 "critical_threshold": 500
+            },
+            # TA-Based KPIs (Coverage Analysis)
+            "ta_overshoot_percentage": {
+                "technical_name": "TA Overshoot Percentage",
+                "user_friendly_name": "Coverage Overshoot",
+                "description": "Percentage of UEs at overshoot distances (Index 0, 10, 11) - indicates antenna issues or interference",
+                "unit": "%",
+                "higher_is_better": False,
+                "normal_range": (0, 5),
+                "critical_threshold": 15,
+                "data_source": "timing_advance_data"
+            },
+            "avg_timing_advance": {
+                "technical_name": "Average Timing Advance Index",
+                "user_friendly_name": "Average UE Distance",
+                "description": "Weighted average TA index indicating typical user distance from base station",
+                "unit": "index",
+                "higher_is_better": None,  # Optimal range, not higher/lower
+                "normal_range": (4, 7),
+                "critical_threshold": 8,
+                "optimal_target": 5.5,
+                "data_source": "timing_advance_data"
             }
         }
-        
+
         self._initialize_database()
     
     @property
@@ -537,6 +559,153 @@ class LiquidZimbabweKPIManager:
                 
         except Exception as e:
             self.logger.error(f"Failed to store live KPI data: {e}")
+
+    # ========================================
+    # TA-BASED KPI METHODS
+    # ========================================
+
+    def get_ta_distribution(self, site_name: str, cell_id: Optional[int] = None, days: int = 7) -> Optional[Dict]:
+        """
+        Get TA distribution metrics for a site/cell.
+
+        Args:
+            site_name: Site identifier
+            cell_id: Optional cell ID (None = aggregate all cells)
+            days: Days of history to retrieve
+
+        Returns:
+            Dictionary with TA metrics or None if not found
+        """
+        try:
+            # Import here to avoid circular dependency
+            from tools.sql_tools import get_ta_metrics_direct
+
+            ta_data = get_ta_metrics_direct(site_name, cell_id, days)
+
+            if not ta_data or len(ta_data) == 0:
+                self.logger.warning(f"No TA data found for site {site_name}")
+                return None
+
+            # Return latest record
+            latest = ta_data[0]
+
+            return {
+                "timestamp": latest.get("timestamp"),
+                "site_name": latest.get("site_name"),
+                "cell_id": latest.get("cell_id"),
+                "total_ues": latest.get("total_ues"),
+                "avg_ta_index": latest.get("avg_ta_index"),
+                "overshoot_percentage": latest.get("overshoot_percentage"),
+                "cell_edge_percentage": latest.get("cell_edge_percentage"),
+                "rach_success_rate": latest.get("rach_success_rate"),
+                "ta_distribution": {
+                    f"index_{i}": latest.get(f"ta_index_{i}", 0)
+                    for i in range(12)
+                }
+            }
+
+        except Exception as e:
+            self.logger.error(f"Failed to get TA distribution: {e}")
+            return None
+
+    def check_ta_alerts(self, site_name: str, cell_id: Optional[int] = None) -> List[Dict]:
+        """
+        Check for TA-based coverage issues and generate alerts.
+
+        Args:
+            site_name: Site identifier
+            cell_id: Optional cell ID
+
+        Returns:
+            List of alert dictionaries
+        """
+        alerts = []
+
+        try:
+            ta_data = self.get_ta_distribution(site_name, cell_id, days=1)
+
+            if not ta_data:
+                return alerts
+
+            overshoot = ta_data.get("overshoot_percentage", 0)
+            cell_edge = ta_data.get("cell_edge_percentage", 0)
+            avg_ta = ta_data.get("avg_ta_index", 0)
+
+            # Check overshoot
+            if overshoot > 15:
+                alerts.append({
+                    "kpi_name": "ta_overshoot_percentage",
+                    "alert_level": "CRITICAL",
+                    "current_value": overshoot,
+                    "threshold_value": 15,
+                    "message": f"Critical overshoot detected: {overshoot:.1f}% (target: <5%). Immediate antenna downtilt or power reduction required."
+                })
+            elif overshoot > 10:
+                alerts.append({
+                    "kpi_name": "ta_overshoot_percentage",
+                    "alert_level": "WARNING",
+                    "current_value": overshoot,
+                    "threshold_value": 10,
+                    "message": f"Elevated overshoot: {overshoot:.1f}% (target: <5%). Consider antenna downtilt or power reduction."
+                })
+
+            # Check cell edge
+            if cell_edge > 25:
+                alerts.append({
+                    "kpi_name": "cell_edge_percentage",
+                    "alert_level": "CRITICAL",
+                    "current_value": cell_edge,
+                    "threshold_value": 25,
+                    "message": f"Critical cell edge loading: {cell_edge:.1f}% (target: <15%). Power increase required."
+                })
+            elif cell_edge > 20:
+                alerts.append({
+                    "kpi_name": "cell_edge_percentage",
+                    "alert_level": "WARNING",
+                    "current_value": cell_edge,
+                    "threshold_value": 20,
+                    "message": f"Elevated cell edge loading: {cell_edge:.1f}% (target: <15%). Consider power increase."
+                })
+
+            # Check average TA index
+            if avg_ta < 3:
+                alerts.append({
+                    "kpi_name": "avg_timing_advance",
+                    "alert_level": "WARNING",
+                    "current_value": avg_ta,
+                    "threshold_value": 3,
+                    "message": f"Average TA too low: {avg_ta:.2f} (optimal: 4-7). Overshooting likely - antenna adjustment needed."
+                })
+            elif avg_ta > 8:
+                alerts.append({
+                    "kpi_name": "avg_timing_advance",
+                    "alert_level": "WARNING",
+                    "current_value": avg_ta,
+                    "threshold_value": 8,
+                    "message": f"Average TA too high: {avg_ta:.2f} (optimal: 4-7). Undershooting or coverage gap detected."
+                })
+
+            # Store alerts in database
+            if alerts:
+                with sqlite3.connect(self.db_path) as conn:
+                    cursor = conn.cursor()
+                    for alert in alerts:
+                        cursor.execute("""
+                            INSERT INTO kpi_alerts (
+                                site_name, cell_id, kpi_name,
+                                current_value, threshold_value, alert_level, message
+                            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """, (
+                            site_name, cell_id, alert["kpi_name"],
+                            alert["current_value"], alert["threshold_value"],
+                            alert["alert_level"], alert["message"]
+                        ))
+                    conn.commit()
+
+        except Exception as e:
+            self.logger.error(f"Failed to check TA alerts: {e}")
+
+        return alerts
 
     # ========================================
     # ADAPTER METHODS FOR LEGACY AGENT COMPATIBILITY

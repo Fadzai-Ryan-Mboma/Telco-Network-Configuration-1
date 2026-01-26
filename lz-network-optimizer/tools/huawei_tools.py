@@ -628,7 +628,7 @@ def query_huawei_kpi(
                 'base_url': os.getenv('HUAWEI_API_URL'),
                 'username': os.getenv('HUAWEI_USERNAME'),
                 'password': os.getenv('HUAWEI_PASSWORD'),
-                'timeout': 10,
+                'timeout': 15,
                 'retry_attempts': 2,
                 'retry_delay': 3,
                 'ssl_verify': False
@@ -637,22 +637,43 @@ def query_huawei_kpi(
 
             # Connect to API
             if not client.connect():
+                logger.warning(f"Huawei API connection failed for {site_name}")
                 return f"[API UNAVAILABLE] Use execute_lz_kpi_sql tool to query KPIs from historical database for site '{site_name}'"
 
-            # Query KPI counters via MML
-            mml_command = f"LST PMDATA: OBJECTTYPE=CELL, LOCALCELLID={cell_id};"
-            response = client.execute_mml_command(mml_command, [site_name])
-
-            # Parse response (simplified - would need proper parsing)
-            response_str = str(response)
-            if "SUCCEED" in response_str.upper() or "SUCCESS" in response_str.upper() or "RETCODE = 0" in response_str:
-                return f"KPI data for {site_name} (cell {cell_id}):\n{response_str[:1000]}"
-            else:
-                return f"ERROR: Failed to query KPIs. Response: {response_str[:500]}"
+            logger.info(f"✅ Connected to Huawei API - querying KPIs for {site_name} cell {cell_id}")
+            
+            # Try MML command to get PM data (Performance Measurement counters)
+            # Note: REST KPI endpoint not available on this Huawei version
+            logger.info(f"Attempting MML PM data query for {site_name}...")
+            
+            # Try multiple MML commands to find what works
+            mml_commands = [
+                f"LST CELLPMAGGREGATION: LOCALCELLID={cell_id};",  # List aggregated PM data
+                f"LST PDCCHLINKSTAT: LOCALCELLID={cell_id};",       # PDCCH link stats  
+                f"LST CELLREALTIME: LOCALCELLID={cell_id};",        # Real-time cell stats
+                f"LST PDCPHPERF: LOCALCELLID={cell_id};",           # PDCP performance
+            ]
+            
+            for cmd in mml_commands:
+                try:
+                    logger.info(f"Trying MML command: {cmd}")
+                    response = client.execute_mml_command(cmd, [site_name])
+                    response_str = str(response)
+                    
+                    if "SUCCEED" in response_str.upper() or "SUCCESS" in response_str.upper() or response.get('retCode') in ['0', 0]:
+                        logger.info(f"✅ MML command succeeded: {cmd[:50]}...")
+                        return f"✅ LIVE DATA from Huawei iMaster MAE for {site_name} (cell {cell_id}):\n\nCommand: {cmd}\n\nResponse:\n{response_str[:800]}\n\n[Data Source: LIVE NETWORK API]\n\nNote: Use this raw data to extract KPI values."
+                except Exception as cmd_error:
+                    logger.warning(f"MML command failed: {cmd} - {cmd_error}")
+                    continue
+            
+            # If all MML commands fail, return helpful message
+            logger.warning(f"All MML commands failed for {site_name}. Falling back to database.")
+            return f"[API UNAVAILABLE] Huawei API connected but MML queries failed. Use execute_lz_kpi_sql tool to query KPIs from historical database for site '{site_name}'"
 
         except Exception as api_error:
-            logger.warning(f"Huawei API error: {api_error}. Falling back to database.")
-            return f"[API UNAVAILABLE] Use execute_lz_kpi_sql tool to query KPIs from historical database for site '{site_name}'"
+            logger.warning(f"Huawei API error: {api_error}. Database fallback available.")
+            return f"[API UNAVAILABLE] API error: {str(api_error)}. Use execute_lz_kpi_sql tool to query KPIs from historical database for site '{site_name}'"
 
     except Exception as e:
         logger.error(f"Error querying KPIs: {e}")

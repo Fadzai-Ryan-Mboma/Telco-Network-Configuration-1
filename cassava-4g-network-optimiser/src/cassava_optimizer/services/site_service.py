@@ -117,19 +117,67 @@ class KPIService:
         if not self._initialized:
             await init_database()
             self._initialized = True
-    
-    async def get_site_kpis(self, site_id: str) -> dict[str, dict[str, Any]]:
+
+    async def _resolve_site_id(self, site_name_or_id: str) -> str | None:
+        """
+        Resolve site_id from site_name or return if already site_id.
+
+        Handles mismatch between UI passing site_name with dashes
+        (e.g., "MSH-0112-Bindura Hospital") and database storing site_id
+        with underscores (e.g., "MSH_0112_Bindura_Hospital").
+
+        Args:
+            site_name_or_id: Either site_name (with dashes) or site_id (with underscores)
+
+        Returns:
+            Resolved site_id or None if not found
+        """
+        from sqlalchemy import select
+        from cassava_optimizer.infrastructure.database import SiteModel, get_session
+
+        await self._ensure_initialized()
+
+        async with get_session() as session:
+            # Try as site_id first (exact match)
+            stmt = select(SiteModel).where(SiteModel.site_id == site_name_or_id)
+            result = await session.execute(stmt)
+            site = result.scalar_one_or_none()
+
+            if site:
+                logger.debug(f"Resolved site_id (exact match): {site_name_or_id}")
+                return site.site_id
+
+            # Try as site_name (UI passes this with dashes)
+            stmt = select(SiteModel).where(SiteModel.site_name == site_name_or_id)
+            result = await session.execute(stmt)
+            site = result.scalar_one_or_none()
+
+            if site:
+                logger.debug(f"Resolved site_name '{site_name_or_id}' to site_id '{site.site_id}'")
+                return site.site_id
+
+            logger.warning(f"Could not resolve site: {site_name_or_id}")
+            return None
+
+    async def get_site_kpis(self, site_name_or_id: str) -> dict[str, dict[str, Any]]:
         """
         Get latest KPI values for a site.
-        
+
         Args:
-            site_id: Site identifier
-            
+            site_name_or_id: Site name (from UI) or site_id
+
         Returns:
             Dictionary of KPI name -> {value, target, trend}
         """
         await self._ensure_initialized()
-        
+
+        # Resolve site_id from site_name if needed
+        site_id = await self._resolve_site_id(site_name_or_id)
+
+        if not site_id:
+            logger.warning(f"Could not resolve site: {site_name_or_id}")
+            return {}
+
         # Get latest KPIs from database
         kpis = {}
         
@@ -172,21 +220,28 @@ class KPIService:
                 history = await self._repository.get_historical_kpis(
                     site_id=site_id,
                     kpi_name=kpi_name,
-                    days=1,
+                    days=90,  # Look back 90 days for historical/demo data
                 )
                 
                 if history:
                     # Get most recent value
                     latest = history[0].kpi_value
-                    
+
+                    # Apply scale correction for percentage-based KPIs stored as decimals
+                    if kpi_name == "rach_success_rate":
+                        latest = latest * 100  # Convert decimal to percentage
+
                     # Calculate trend (compare to previous if available)
                     if len(history) > 1:
                         previous = history[1].kpi_value
+                        # Apply same scaling to previous value for trend calculation
+                        if kpi_name == "rach_success_rate":
+                            previous = previous * 100
                         diff = latest - previous
                         trend = f"+{diff:.2f}" if diff >= 0 else f"{diff:.2f}"
                     else:
                         trend = "N/A"
-                    
+
                     kpis[config["key"]] = {
                         "value": latest,
                         "target": config["target"],
@@ -379,13 +434,20 @@ class KPIService:
             List of {timestamp, value} dictionaries for charting
         """
         await self._ensure_initialized()
-        
+
+        # Resolve site_id from site_name
+        site_id = await self._resolve_site_id(site_name)
+
+        if not site_id:
+            logger.warning(f"Could not resolve site: {site_name}")
+            return []
+
         try:
             # Convert hours to days for repository method
             days = max(1, hours // 24)
-            
+
             history = await self._repository.get_historical_kpis(
-                site_id=site_name,
+                site_id=site_id,
                 kpi_name=kpi_name,
                 days=days,
             )

@@ -16,8 +16,9 @@ langgraph==0.6.8
 langgraph-checkpoint==2.1.1
 langgraph-prebuilt==0.6.4
 
-# NVIDIA AI Endpoints Integration
-langchain-nvidia-ai-endpoints==0.3.10
+# LLM Provider Integrations
+langchain-nvidia-ai-endpoints==0.3.10  # NVIDIA AI endpoints
+langchain-openai==0.3.1  # OpenAI (GPT-4o-mini, GPT-4o, etc.)
 
 # Environment & Configuration Management
 python-dotenv==1.1.1

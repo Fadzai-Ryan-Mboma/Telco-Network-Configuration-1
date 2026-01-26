@@ -84,13 +84,13 @@ kpi_weights:
       critical: 5.0
 
   # ============================================================================
-  # TIER 3: EFFICIENCY (25%)
+  # TIER 3: EFFICIENCY & COVERAGE (25%)
   # ============================================================================
-  # Rationale: Resource efficiency affects scalability and costs
+  # Rationale: Resource efficiency and coverage optimization affect scalability and costs
 
   # Upload Quality
   upload_quality:
-    weight: 0.10  # 10%
+    weight: 0.08  # 8% (reduced from 10%)
     tier: 3
     priority: "medium"
     description: "UL Quality (100 - IBLER)"
@@ -106,7 +106,7 @@ kpi_weights:
 
   # Control Channel Load - PDCCH resource usage
   control_channel_load:
-    weight: 0.10  # 10%
+    weight: 0.08  # 8% (reduced from 10%)
     tier: 3
     priority: "medium"
     description: "PDCCH CCE Usage Rate"
@@ -123,7 +123,7 @@ kpi_weights:
 
   # Feedback Channel Load - PUCCH resource usage
   feedback_channel_load:
-    weight: 0.05  # 5%
+    weight: 0.04  # 4% (reduced from 5%)
     tier: 3
     priority: "low"
     description: "PUCCH Usage Rate"
@@ -137,6 +137,42 @@ kpi_weights:
       poor: 80.0
       critical: 90.0
     invert_scoring: true  # Lower values = better score
+
+  # TA Overshoot Percentage - NEW: Coverage quality indicator
+  ta_overshoot_percentage:
+    weight: 0.03  # 3%
+    tier: 3
+    priority: "medium"
+    description: "TA Overshoot Percentage - UEs at excessive distances (Index 0, 10, 11)"
+    unit: "%"
+    target: 5.0
+    max_acceptable: 10.0
+    thresholds:
+      excellent: 3.0    # Lower is better
+      good: 5.0
+      fair: 10.0
+      poor: 15.0
+      critical: 20.0
+    invert_scoring: true  # Lower values = better score
+    data_source: "timing_advance_data"
+
+  # Average Timing Advance - NEW: Coverage distance indicator
+  avg_timing_advance:
+    weight: 0.02  # 2%
+    tier: 3
+    priority: "low"
+    description: "Average TA Index - Typical UE distance from base station"
+    unit: "index"
+    target: 5.5
+    optimal_range: [4.0, 7.0]
+    thresholds:
+      excellent: 5.5    # Optimal range
+      good: 6.0         # Slight deviation
+      fair: 7.0         # Approaching limits
+      poor: 8.0         # Outside optimal
+      critical: 9.0     # Far from optimal
+    range_based_scoring: true  # Score based on distance from optimal range
+    data_source: "timing_advance_data"
 
 # ============================================================================
 # WEIGHTED SCORING ALGORITHM

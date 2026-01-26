@@ -5,6 +5,9 @@ Timeout Handler Utility for LLM API Calls
 Prevents 5-minute NVIDIA API gateway timeouts from hanging the demo.
 Provides decorators and context managers for hard timeouts on LLM invocations.
 
+THREAD-SAFE VERSION: Uses threading.Timer instead of signal.alarm for
+compatibility with multi-threaded environments (Streamlit, FastAPI, async).
+
 Usage:
     from utils.timeout_handler import with_timeout, TimeoutError
 
@@ -13,11 +16,12 @@ Usage:
         return agent.invoke(...)
 """
 
-import signal
+import threading
 import logging
 from functools import wraps
 from typing import Callable, Any, Optional
 from contextlib import contextmanager
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +38,8 @@ class TimeoutHandler:
     Features:
     - Hard timeout limits (default: 30 seconds)
     - Automatic fallback triggering on timeout
-    - Cross-platform support (signal-based on Unix, thread-based fallback)
+    - Thread-safe timeout using threading.Timer
+    - Works in multi-threaded environments (Streamlit, FastAPI, async)
     - Detailed timeout logging
     """
 
@@ -46,16 +51,18 @@ class TimeoutHandler:
             timeout_seconds: Maximum time allowed for operation (default: 30)
         """
         self.timeout_seconds = timeout_seconds
-        self.platform_supports_signals = hasattr(signal, 'SIGALRM')
+        self._timer = None
+        self._timed_out = threading.Event()
 
-    def _timeout_handler(self, signum, frame):
-        """Signal handler for SIGALRM."""
-        raise TimeoutError(f"Operation exceeded {self.timeout_seconds} second timeout")
+    def _timeout_callback(self):
+        """Timer callback that sets the timeout flag."""
+        self._timed_out.set()
+        logger.error(f"⏰ TIMEOUT: Operation exceeded {self.timeout_seconds} second timeout")
 
     @contextmanager
     def timeout_context(self, operation_name: str = "LLM call"):
         """
-        Context manager for timeout protection.
+        Context manager for timeout protection using threading.Timer.
 
         Args:
             operation_name: Name of operation for logging
@@ -67,27 +74,25 @@ class TimeoutHandler:
             with timeout_handler.timeout_context("Agent invocation"):
                 result = agent.invoke(state)
         """
-        if not self.platform_supports_signals:
-            logger.warning(f"⚠️  Signal-based timeout not supported on this platform. "
-                         f"Timeout protection disabled for: {operation_name}")
-            yield
-            return
-
-        # Set up signal handler
-        old_handler = signal.signal(signal.SIGALRM, self._timeout_handler)
-        signal.alarm(self.timeout_seconds)
+        self._timed_out.clear()
+        self._timer = threading.Timer(self.timeout_seconds, self._timeout_callback)
+        self._timer.daemon = True
+        self._timer.start()
 
         try:
             logger.info(f"⏱️  Starting {operation_name} with {self.timeout_seconds}s timeout")
             yield
+
+            # Check if we timed out
+            if self._timed_out.is_set():
+                raise TimeoutError(f"Operation exceeded {self.timeout_seconds} second timeout")
+
             logger.info(f"✅ {operation_name} completed within timeout")
-        except TimeoutError as e:
-            logger.error(f"⏰ TIMEOUT: {operation_name} exceeded {self.timeout_seconds}s limit")
-            raise
         finally:
-            # Cancel alarm and restore old handler
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
+            # Cancel the timer
+            if self._timer:
+                self._timer.cancel()
+                self._timer = None
 
 
 def with_timeout(timeout_seconds: int = 30, operation_name: Optional[str] = None):

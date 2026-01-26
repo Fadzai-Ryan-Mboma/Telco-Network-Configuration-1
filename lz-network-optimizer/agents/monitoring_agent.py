@@ -5,7 +5,7 @@ Created: 2025-10-30
 """
 
 from typing import Dict, Any
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from utils.llm_factory import get_llm_client
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import PromptTemplate
 import sys
@@ -20,6 +20,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.sql_tools import execute_lz_kpi_sql, get_latest_kpis_direct
 from tools.calculation_tools import calc_weighted_kpi_score, calc_kpi_trend
 from prompts.system_prompts import MONITORING_AGENT_PROMPT
+from utils.timeout_handler import TimeoutHandler, TimeoutError as LLMTimeoutError
 
 
 def monitoring_agent(state: Dict[str, Any]) -> Dict[str, Any]:
@@ -46,11 +47,8 @@ def monitoring_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         site_name = site_name_val
         cell_id = state.get("cell_id", 1)
 
-    llm = ChatNVIDIA(
-        model="meta/llama-3.1-70b-instruct",
-        api_key=os.getenv("NVIDIA_API_KEY"),
-        temperature=0.5
-    )
+    # Initialize LLM using factory (supports OpenAI, NVIDIA, etc.)
+    llm = get_llm_client(temperature=0.5)
 
     tools = [execute_lz_kpi_sql, calc_weighted_kpi_score, calc_kpi_trend]
 
@@ -85,10 +83,14 @@ YOUR TASK:
         logger.info(f"🤖 MONITORING AGENT - Starting analysis for {site_name}")
         logger.info(f"📝 Task: {task[:200]}...")
 
-        # Try LLM agent first
+        # Try LLM agent first with timeout
         try:
+            # Create timeout handler (60 seconds for monitoring agent)
+            timeout_handler = TimeoutHandler(timeout_seconds=60)
+
             # LangGraph create_react_agent expects messages in state
-            result = agent.invoke({"messages": [{"role": "user", "content": task}]})
+            with timeout_handler.timeout_context("Monitoring Agent LLM call"):
+                result = agent.invoke({"messages": [{"role": "user", "content": task}]})
 
             # Extract output from messages
             if "messages" in result and len(result["messages"]) > 0:
@@ -102,6 +104,15 @@ YOUR TASK:
                 raise Exception("SQL query generation failed")
 
             logger.info(f"💬 MONITORING AGENT OUTPUT:\n{output}")
+
+        except LLMTimeoutError as timeout_error:
+            logger.error(f"❌ MONITORING AGENT TIMEOUT: {timeout_error}")
+            logger.error(f"⚠️  The LLM took longer than 60 seconds to respond. This could be:")
+            logger.error(f"    1. NVIDIA API is slow or unresponsive")
+            logger.error(f"    2. Network connectivity issues")
+            logger.error(f"    3. Model is overloaded")
+            # Raise as regular exception so fallback can catch it
+            raise Exception(f"LLM timeout - fallback will be attempted")
 
         except Exception as agent_error:
             logger.warning(f"⚠️  Agent execution failed: {agent_error}")

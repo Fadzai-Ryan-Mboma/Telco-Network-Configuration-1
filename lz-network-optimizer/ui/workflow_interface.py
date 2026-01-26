@@ -124,8 +124,12 @@ def parse_workflow_results(state: Dict[str, Any]) -> Dict[str, Any]:
             "mml_commands": []
         }
 
+    # Get all agent outputs
+    kpi_output = state.get("kpi_output", "")
+    validation_output = agent_outputs.get("validation", "")
+    
     # Determine risk level from validation
-    risk_score = extract_risk_score(agent_outputs.get("validation", ""))
+    risk_score = extract_risk_score(validation_output)
     risk_level = categorize_risk(risk_score)
 
     # Extract MML commands from executor output
@@ -134,8 +138,18 @@ def parse_workflow_results(state: Dict[str, Any]) -> Dict[str, Any]:
     # Extract expected impact
     expected_impact = extract_expected_impact(config_output)
     
-    # Parse detailed sections from config_output
-    detailed_sections = parse_detailed_sections(config_output)
+    # Parse detailed sections from all agent outputs
+    kpi_sections = parse_detailed_sections(kpi_output)
+    config_sections = parse_detailed_sections(config_output)
+    validation_sections = parse_detailed_sections(validation_output)
+
+    # Combine sections - prefer more detailed output
+    detailed_issue = kpi_sections.get("issue", "") or config_sections.get("issue", "") or issue_desc
+    detailed_recommendations = config_sections.get("recommendations", "")
+    detailed_risk = validation_sections.get("risk", "") or config_sections.get("risk", "")
+    detailed_impact = (config_sections.get("impact", "") or 
+                      validation_sections.get("impact", "") or 
+                      expected_impact)
 
     return {
         "status": "success",
@@ -146,10 +160,10 @@ def parse_workflow_results(state: Dict[str, Any]) -> Dict[str, Any]:
         "expected_impact": expected_impact,
         "mml_commands": mml_commands,
         "validation_status": validation_status,
-        "detailed_issue": detailed_sections.get("issue", issue_desc),
-        "detailed_recommendations": detailed_sections.get("recommendations", ""),
-        "detailed_risk": detailed_sections.get("risk", ""),
-        "detailed_impact": detailed_sections.get("impact", expected_impact)
+        "detailed_issue": detailed_issue,
+        "detailed_recommendations": detailed_recommendations,
+        "detailed_risk": detailed_risk,
+        "detailed_impact": detailed_impact
     }
 
 
@@ -296,10 +310,10 @@ def parse_detailed_sections(config_output: str) -> Dict[str, str]:
     Parse the detailed technical sections from configuration output.
     
     Extracts content from:
-    - ISSUE IDENTIFIED
-    - RECOMMENDED CHANGES
-    - RISK ASSESSMENT
-    - EXPECTED IMPACT
+    - PRIMARY ISSUE / Issue Identified
+    - PRIMARY PARAMETER / SECONDARY PARAMETER / Recommended Changes
+    - Risk Factors / Risk Assessment
+    - Expected Impact / Expected KPI Improvements
     
     Args:
         config_output: Raw configuration output with technical sections
@@ -322,32 +336,46 @@ def parse_detailed_sections(config_output: str) -> Dict[str, str]:
     section_content = []
     
     for line in lines:
-        # Check for section headers
-        if "ISSUE IDENTIFIED" in line:
+        line_upper = line.upper()
+        
+        # Check for section headers (support both old and new formats)
+        if ("PRIMARY ISSUE:" in line_upper or "ISSUE IDENTIFIED" in line_upper):
             if current_section and section_content:
                 sections[current_section] = '\n'.join(section_content).strip()
             current_section = "issue"
-            section_content = []
-        elif "RECOMMENDED CHANGES" in line:
+            section_content = [line]  # Include the header
+            
+        elif ("PRIMARY PARAMETER:" in line_upper or "SECONDARY PARAMETER:" in line_upper or 
+              "RECOMMENDED CHANGES" in line_upper or "💡 RECOMMENDED CHANGES" in line_upper):
             if current_section and section_content:
                 sections[current_section] = '\n'.join(section_content).strip()
             current_section = "recommendations"
-            section_content = []
-        elif "RISK ASSESSMENT" in line:
+            if not section_content:  # Only add if starting fresh
+                section_content = [line]
+            else:
+                section_content.append(line)
+            
+        elif ("RISK FACTORS:" in line_upper or "RISK ASSESSMENT" in line_upper or 
+              "⚠️ RISK ASSESSMENT" in line_upper):
             if current_section and section_content:
                 sections[current_section] = '\n'.join(section_content).strip()
             current_section = "risk"
-            section_content = []
-        elif "EXPECTED IMPACT" in line:
+            section_content = [line]
+            
+        elif ("EXPECTED IMPACT" in line_upper or "EXPECTED KPI IMPROVEMENTS" in line_upper or
+              "📈 EXPECTED IMPACT" in line_upper or "PERFORMANCE IMPROVEMENTS:" in line_upper):
             if current_section and section_content:
                 sections[current_section] = '\n'.join(section_content).strip()
             current_section = "impact"
-            section_content = []
-        elif "EXECUTION MODE" in line or "NEXT STEP" in line:
-            # End of impact section
+            section_content = [line]
+            
+        elif "EXECUTION MODE" in line_upper or "NEXT STEP" in line_upper or "=====" in line:
+            # End of section - save and stop
             if current_section and section_content:
                 sections[current_section] = '\n'.join(section_content).strip()
-            break
+            if "=====" in line and "CONFIGURATION RECOMMENDATIONS" not in line_upper:
+                break
+            
         elif current_section and line.strip() and not line.startswith('━'):
             # Add content to current section (skip separator lines)
             section_content.append(line)

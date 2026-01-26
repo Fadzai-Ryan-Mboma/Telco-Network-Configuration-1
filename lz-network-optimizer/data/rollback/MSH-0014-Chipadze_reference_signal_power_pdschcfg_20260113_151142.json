@@ -1,0 +1,40 @@
+{
+  "rollback_id": "MSH-0014-Chipadze_reference_signal_power_pdschcfg_20260113_151142",
+  "timestamp": "2026-01-13T15:11:43.924995",
+  "parameter_name": "reference_signal_power_pdschcfg",
+  "site_name": "MSH-0014-Chipadze",
+  "cell_states": [
+    {
+      "cell_id": 1,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260113151143_55451', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-13 15:11:42\\r\\nO&M    #806355291\\r\\n%%/*1880025455*/LST PDSCHCFG:LOCALCELLID=1;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  1\\r\\n      Reference signal power(0.1dBm)  =  49\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 2,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260113151143_55452', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-13 15:11:42\\r\\nO&M    #806355292\\r\\n%%/*1880025457*/LST PDSCHCFG:LOCALCELLID=2;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  2\\r\\n      Reference signal power(0.1dBm)  =  49\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 3,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260113151143_55453', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-13 15:11:42\\r\\nO&M    #806355293\\r\\n%%/*1880025459*/LST PDSCHCFG:LOCALCELLID=3;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  3\\r\\n      Reference signal power(0.1dBm)  =  49\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 4,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260113151143_55454', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-13 15:11:42\\r\\nO&M    #806355294\\r\\n%%/*1880025461*/LST PDSCHCFG:LOCALCELLID=4;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  4\\r\\n      Reference signal power(0.1dBm)  =  57\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 5,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260113151143_55455', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-13 15:11:42\\r\\nO&M    #806355295\\r\\n%%/*1880025463*/LST PDSCHCFG:LOCALCELLID=5;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  5\\r\\n      Reference signal power(0.1dBm)  =  57\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 6,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260113151144_55456', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-13 15:11:43\\r\\nO&M    #806355296\\r\\n%%/*1880025465*/LST PDSCHCFG:LOCALCELLID=6;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  6\\r\\n      Reference signal power(0.1dBm)  =  57\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    }
+  ],
+  "rollback_commands": [],
+  "status": "captured"
+}

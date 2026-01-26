@@ -211,7 +211,7 @@ SECONDARY ISSUES:
 3. Cell edge users connecting to far sector instead of closer neighbor
 
 ROOT CAUSE HYPOTHESIS:
-- Reference signal power slightly too high (140 = 14.0 dBm)
+- Reference signal power slightly too high (152 = 15.2 dBm)
 - Cell footprint larger than needed → Users connect beyond optimal range
 - Neighbor site MSH-0112 (1.2 km away) could serve overshoot users better
 - Excessive TA causing quality degradation for distant users
@@ -249,12 +249,12 @@ RECOMMENDED CHANGES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Primary Parameter: Adjust Reference Signal Power
-  Current: 140 (0.1 dBm units = 14.0 dBm)
-  Recommended: 152 (15.2 dBm)
-  Change: +12 units (+1.2 dBm)
+  Current: 152 (0.1 dBm units = 15.2 dBm)
+  Recommended: 172 (17.2 dBm)
+  Change: +20 units (+2.0 dBm)
   
   Reasoning:
-  - Projection: 140→152 improves RACH 96.8%→96.0%, DL BLER 92.0%→92.0%
+  - Projection: 152→172 improves RACH 96.8%→97.5%, DL BLER 92.0%→93.5%
   - RSRP coverage improvement: 82.0%→85.0% (+3pp better coverage)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -493,12 +493,12 @@ RECOMMENDED CHANGES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Primary Parameter: Reduce Reference Signal Power (Footprint Optimization)
-  Current: 140 (0.1 dBm units = 14.0 dBm)
+  Current: 152 (0.1 dBm units = 15.2 dBm)
   Recommended: 120 (12.0 dBm)
-  Change: -20 units (-2.0 dBm)
+  Change: -32 units (-3.2 dBm)
   
   Reasoning:
-  - Projection: 140→120 reduces TA 5.0%→3.0% (-40% overshoot)
+  - Projection: 152→120 reduces TA 5.0%→3.0% (-40% overshoot)
   - RACH improvement: 93.0%→97.0% (+4pp from better cell selection)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

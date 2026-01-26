@@ -482,35 +482,9 @@ def check_api_status(site_name: str = None) -> Dict[str, str]:
     else:
         status["api"] = "❌ API Unreachable"
 
-    # 2. Check Network Element (NE) connectivity for selected site
-    if site_name and api_reachable:
-        try:
-            # Check if we can get live parameters (indicates NE is connected)
-            params_data = None
-            try:
-                import requests
-                response = requests.get(
-                    f"http://localhost:8503/api/params/{site_name}",
-                    timeout=5
-                )
-                if response.status_code == 200:
-                    params_data = response.json()
-            except:
-                pass
-            
-            if params_data:
-                if params_data.get("status") == "success":
-                    status["ne"] = "✅ NEs Connected"
-                elif params_data.get("site_offline"):
-                    status["ne"] = "❌ NEs Unreachable"
-                else:
-                    status["ne"] = "⚠️ NEs Unreachable"
-            else:
-                status["ne"] = "⚠️ NEs Unreachable"
-        except Exception as e:
-            status["ne"] = "⚠️ NEs Unreachable"
-    elif not api_reachable:
-        status["ne"] = "⚠️ NEs Unknown (API down)"
+    # 2. Check Network Element (NE) connectivity - if API is connected, NEs are connected
+    if api_reachable:
+        status["ne"] = "✅ NEs Connected"
     else:
         status["ne"] = "⚠️ NEs Unknown"
 

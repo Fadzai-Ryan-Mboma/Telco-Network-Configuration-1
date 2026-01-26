@@ -1,45 +1,58 @@
 # Quick Demo Reference Card
 
+## 🎯 Bindura Zaoga Current Parameters (Baseline)
+```
+Signal Power:  152 (15.2 dBm)
+A3 Offset:     3 dB
+T310 Timer:    1000 ms
+P0 PUSCH:      -67 dBm
+PDCCH Agg:     CONGREG_LV4
+```
+
 ## 🎯 4 Demo Scenarios - Quick Reference
 
 ### 1️⃣ LOW DOWNLOAD SPEED (Most Common)
-**Prompt:** `improve download speed for MSH-0014-Chipadze`
+**Prompt:** `improve download speed for Bindura Zaoga`
 ```
-Issue:     15.8 Mbps (target: 25 Mbps) | -37% gap
-Fix:       RS Power +2 dBm + PDCCH offset -4 dB
-Result:    19.2 Mbps (+21%) | Score: 71→80
+Issue:     Download below target
+Current:   RS Power 152 (15.2 dBm)
+Fix:       RS Power 152 → 172 (+2 dBm)
+Result:    +15-25% download speed
 Risk:      LOW (2.8/10)
-Key Fact:  Coverage +65m, 20% users upgrade QPSK→16-QAM
+Key Fact:  Coverage +65m, better cell-edge SINR
 ```
 
 ### 2️⃣ CRITICAL ACCESS FAILURE (Emergency)
-**Prompt:** `fix network access issues at MSH-0014-Chipadze`
+**Prompt:** `fix network access issues at Bindura Zaoga`
 ```
-Issue:     88.2% access (target: 95%) | CRITICAL
-Fix:       RS Power +3 dBm + T310 +1s + A3 -1 dB
-Result:    95.8% (+7.6pp) | Score: 52→76
+Issue:     Access below 95% threshold
+Current:   RS Power 152, T310 1000ms, A3 3dB
+Fix:       RS Power +3 dBm + T310 → 2000ms + A3 → 2dB
+Result:    Access +5-7%
 Risk:      MEDIUM (5.5/10) - 72hr monitoring
-Key Fact:  Coverage hole 15%→3% (-80%), RLF -66%
+Key Fact:  Improved coverage, reduced RLF
 ```
 
 ### 3️⃣ LOW UPLOAD SPEED
-**Prompt:** `optimize upload speed for MSH-0014-Chipadze`
+**Prompt:** `optimize upload speed for Bindura Zaoga`
 ```
-Issue:     4.8 Mbps (target: 8 Mbps) | -40% gap
-Fix:       P0 PUSCH +6 dBm (better UE power use)
-Result:    6.8 Mbps (+42%) | Score: 75→82
+Issue:     Upload below target
+Current:   P0 PUSCH -67 dBm
+Fix:       P0 PUSCH -67 → -61 dBm (+6 dB)
+Result:    Upload +20-30%
 Risk:      LOW (3.2/10)
-Key Fact:  UE power 14→18 dBm, battery +6-8%
+Key Fact:  UE power boost, better uplink SINR
 ```
 
-### 4️⃣ POOR QUALITY
-**Prompt:** `improve quality for MSH-0014-Chipadze`
+### 4️⃣ PDCCH OPTIMIZATION
+**Prompt:** `improve quality for Bindura Zaoga`
 ```
-Issue:     IBLER 20.5% (target: <5%) | Quality 79.5%
-Fix:       PDCCH SINR offset 12→6 dB (AL efficiency)
-Result:    IBLER 10.7% (-48%) | Score: 74→84
+Issue:     Control channel load high
+Current:   PDCCH Level 4 (CONGREG_LV4)
+Fix:       Optimize PDCCH SINR offset
+Result:    Better CCE efficiency
 Risk:      LOW (3.5/10)
-Key Fact:  CCE load 58%→41%, +44% users scheduled
+Key Fact:  Scheduler optimization
 ```
 
 ---

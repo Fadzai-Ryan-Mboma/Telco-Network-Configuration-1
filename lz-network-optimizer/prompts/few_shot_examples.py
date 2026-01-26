@@ -2,8 +2,15 @@
 Liquid Zimbabwe 4G Network Optimizer - Few-Shot Examples
 Purpose: Few-shot learning examples for Configuration Agent
 Created: 2025-10-30
+Updated: 2025-12-09 - Updated to use Bindura Zaoga current values as baseline
 
 These examples teach the agent how to optimize parameters based on past successes.
+Baseline values from Bindura Zaoga (live Huawei API):
+  - Reference Signal Power: 152 (15.2 dBm)
+  - A3 Event Offset: 3 dB
+  - T310 Timer: 1000 ms
+  - P0 Nominal PUSCH: -67 dBm
+  - PDCCH Aggregation: CONGREG_LV4 (Level 4)
 """
 
 from typing import List, Dict
@@ -12,6 +19,15 @@ from typing import List, Dict
 # ============================================================================
 # FEW-SHOT EXAMPLES FOR CONFIGURATION AGENT
 # ============================================================================
+
+# Baseline values from Bindura Zaoga (current live values)
+BINDURA_ZAOGA_BASELINE = {
+    "reference_signal_power_pdschcfg": 152,  # 15.2 dBm (in tenths)
+    "a3_event_offset": 3,                     # 3 dB
+    "t310_timer": 1000,                       # 1000 ms
+    "p0_nominal_pusch": -67,                  # -67 dBm
+    "pdcch_aggregation_level": 4              # CONGREG_LV4
+}
 
 FEW_SHOT_EXAMPLES = [
     # Example 1: Low Download Speed Optimization
@@ -26,14 +42,14 @@ FEW_SHOT_EXAMPLES = [
         },
         "kpi_issue": "low_download_speed",
         "current_parameters": {
-            "reference_signal_power_pdschcfg": -220
+            "reference_signal_power_pdschcfg": 152  # Current Bindura Zaoga value
         },
         "recommended_change": {
             "parameter": "reference_signal_power_pdschcfg",
-            "from_value": -220,
-            "to_value": -180,
-            "change": +40,
-            "reasoning": "Increasing reference signal power by 40 units (4 dBm) improves cell-edge SINR, leading to better download throughput"
+            "from_value": 152,
+            "to_value": 172,  # +2 dBm increase
+            "change": +20,
+            "reasoning": "Increasing reference signal power by 20 units (2 dBm) improves cell-edge SINR, leading to better download throughput"
         },
         "expected_outcome": {
             "download_speed": "+15-25%",
@@ -60,14 +76,15 @@ FEW_SHOT_EXAMPLES = [
         },
         "kpi_issue": "low_network_access_success",
         "current_parameters": {
-            "reference_signal_power_pdschcfg": -240,
-            "t310_timer": 1000
+            "reference_signal_power_pdschcfg": 152,  # Bindura Zaoga baseline
+            "t310_timer": 1000,  # Bindura Zaoga baseline
+            "a3_event_offset": 3  # Bindura Zaoga baseline
         },
         "recommended_change": {
             "parameter": "reference_signal_power_pdschcfg",
-            "from_value": -240,
-            "to_value": -200,
-            "change": +40,
+            "from_value": 152,
+            "to_value": 182,  # +3 dBm increase
+            "change": +30,
             "reasoning": "Increasing reference signal power improves cell coverage, making it easier for UEs to detect and access the network"
         },
         "expected_outcome": {
@@ -96,13 +113,13 @@ FEW_SHOT_EXAMPLES = [
         },
         "kpi_issue": "low_upload_speed",
         "current_parameters": {
-            "p0_nominal_pusch": -95
+            "p0_nominal_pusch": -67  # Bindura Zaoga baseline
         },
         "recommended_change": {
             "parameter": "p0_nominal_pusch",
-            "from_value": -95,
-            "to_value": -85,
-            "change": +10,
+            "from_value": -67,
+            "to_value": -61,  # +6 dBm increase
+            "change": +6,
             "reasoning": "Increasing P0 nominal PUSCH raises UE transmit power, improving uplink SINR and throughput especially for cell-edge users"
         },
         "expected_outcome": {
@@ -131,19 +148,19 @@ FEW_SHOT_EXAMPLES = [
         },
         "kpi_issue": "high_control_channel_load",
         "current_parameters": {
-            "pdcch_aggregation_level": 2
+            "pdcch_aggregation_level": 4  # Bindura Zaoga baseline (CONGREG_LV4)
         },
         "recommended_change": {
             "parameter": "pdcch_aggregation_level",
-            "from_value": 2,
-            "to_value": 4,
-            "change": +2,
-            "reasoning": "Increasing aggregation level improves PDCCH decoding reliability, reducing retransmissions and overall resource usage"
+            "from_value": 4,
+            "to_value": 2,  # Lower aggregation to reduce CCE usage
+            "change": -2,
+            "reasoning": "Reducing aggregation level to 2 in good SINR conditions frees CCE resources, reducing control channel load"
         },
         "expected_outcome": {
             "control_channel_load": "-10-15%",
             "download_quality": "+2-4%",
-            "side_effects": ["Uses more CCEs per transmission", "May reduce max concurrent users"]
+            "side_effects": ["May affect users at cell edge with poor SINR"]
         },
         "actual_outcome": {
             "control_channel_load": 72.0,  # -13 pp reduction
@@ -165,21 +182,21 @@ FEW_SHOT_EXAMPLES = [
         },
         "kpi_issue": "low_access_and_upload",
         "current_parameters": {
-            "reference_signal_power_pdschcfg": -230,
-            "p0_nominal_pusch": -92
+            "reference_signal_power_pdschcfg": 152,  # Bindura Zaoga baseline
+            "p0_nominal_pusch": -67  # Bindura Zaoga baseline
         },
         "recommended_change": [
             {
                 "parameter": "reference_signal_power_pdschcfg",
-                "from_value": -230,
-                "to_value": -190,
-                "change": +40,
+                "from_value": 152,
+                "to_value": 182,  # +3 dBm
+                "change": +30,
                 "reasoning": "Primary: Improve coverage for better access success"
             },
             {
                 "parameter": "p0_nominal_pusch",
-                "from_value": -92,
-                "to_value": -87,
+                "from_value": -67,
+                "to_value": -62,  # +5 dBm
                 "change": +5,
                 "reasoning": "Secondary: Boost uplink power (smaller change due to combined optimization)"
             }

@@ -5,7 +5,7 @@ Created: 2025-10-30
 """
 
 from typing import Dict, Any
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
+from utils.llm_factory import get_llm_client
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import PromptTemplate
 import sys
@@ -48,13 +48,8 @@ def network_connector_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     cell_id = state.get("cell_id", 1)
     user_query = state.get("user_query", "Query network status")
 
-    # Initialize NVIDIA LLM
-    llm = ChatNVIDIA(
-        model="meta/llama-3.1-70b-instruct",
-        api_key=os.getenv("NVIDIA_API_KEY"),
-        temperature=0.7,
-        max_tokens=2000
-    )
+    # Initialize LLM using factory (supports OpenAI, NVIDIA, etc.)
+    llm = get_llm_client(max_tokens=2000)
 
     # Create agent tools list
     tools = [
@@ -71,20 +66,22 @@ Cell ID: {cell_id}
 User Request: {user_query}
 
 YOUR TASK:
-1. Attempt to query live KPI data for site {site_name}
-2. If API is available, use query_huawei_kpi
-3. If API fails, fall back to execute_lz_kpi_sql to get latest historical data
+1. **ALWAYS TRY query_huawei_kpi FIRST** to get live network data
+2. **ONLY if query_huawei_kpi explicitly says [API UNAVAILABLE]**, then use execute_lz_kpi_sql
+3. If query_huawei_kpi returns KPI data (even with errors), use that data - DO NOT fall back to database unnecessarily
 4. Report data source (live or historical)
 5. Provide all 7 KPI values for next agent
 
 Retrieve these KPIs:
-- network_access_success
-- download_speed
-- download_quality
-- upload_speed
-- upload_quality
-- control_channel_load
-- feedback_channel_load
+- network_access_success (RACH Setup Success Rate %)
+- download_speed (DL PDCP Throughput kbit/s)  
+- download_quality (100 - DL IBLER %)
+- upload_speed (UL PDCP Throughput kbit/s)
+- upload_quality (100 - UL IBLER %)
+- control_channel_load (PDCCH CCE Usage %)
+- feedback_channel_load (PUCCH Usage %)
+
+**CRITICAL: Try live API first! Only use database if API completely unavailable!**
 """
 
     # Build system prompt with task

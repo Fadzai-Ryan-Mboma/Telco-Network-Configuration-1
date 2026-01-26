@@ -38,6 +38,7 @@ class LiquidZimbabweParameterManager:
         
         # Parameter configuration based on Configurations.txt
         # Note: query_command and modify_command are sourced from domain.mml_commands.MML_COMMANDS
+        # Default values based on Bindura Zaoga live values (2025-12-09)
         self.parameter_config = {
             "reference_signal_power_pdschcfg": {
                 "technical_name": "Reference Signal Power (PDSCHCFG(0.1 dBm))",
@@ -47,7 +48,7 @@ class LiquidZimbabweParameterManager:
                 "range": (-600, 500),
                 "min_value": -600,
                 "max_value": 500,
-                "default_value": -200,
+                "default_value": 152,  # Bindura Zaoga: 15.2 dBm
                 "impact": "Higher values increase coverage but may cause interference"
             },
             "reference_signal_power_rs": {
@@ -58,7 +59,7 @@ class LiquidZimbabweParameterManager:
                 "range": (-600, 500),
                 "min_value": -600,
                 "max_value": 500,
-                "default_value": -180,
+                "default_value": 152,  # Bindura Zaoga: 15.2 dBm
                 "impact": "Main parameter controlling cell footprint and interference"
             },
             "a3_event_offset": {
@@ -69,7 +70,7 @@ class LiquidZimbabweParameterManager:
                 "range": (0, 15),
                 "min_value": 0,
                 "max_value": 15,
-                "default_value": 3,
+                "default_value": 3,  # Bindura Zaoga: 3 dB
                 "impact": "Lower values reduce call drops but increase ping-pong handovers"
             },
             "t310_timer": {
@@ -80,7 +81,7 @@ class LiquidZimbabweParameterManager:
                 "range": (100, 6000),
                 "min_value": 100,
                 "max_value": 6000,
-                "default_value": 1000,
+                "default_value": 1000,  # Bindura Zaoga: 1000 ms
                 "valid_values": ["MS100_T310", "MS200_T310", "MS500_T310", "MS1000_T310", 
                                "MS1500_T310", "MS2000_T310", "MS2500_T310", "MS6000_T310"],
                 "impact": "Longer timers reduce false alarms but delay real failure detection"
@@ -93,7 +94,7 @@ class LiquidZimbabweParameterManager:
                 "range": (-126, 24),
                 "min_value": -126,
                 "max_value": 24,
-                "default_value": -70,
+                "default_value": -67,  # Bindura Zaoga: -67 dBm
                 "impact": "Higher values improve upload quality but increase interference"
             },
             "pdcch_aggregation_level": {
@@ -104,7 +105,7 @@ class LiquidZimbabweParameterManager:
                 "range": (0, 30),
                 "min_value": 0,
                 "max_value": 30,
-                "default_value": 12,
+                "default_value": 4,  # Bindura Zaoga: CONGREG_LV4
                 "impact": "Higher levels improve reliability but use more resources"
             }
         }
@@ -366,12 +367,8 @@ class LiquidZimbabweParameterManager:
         if parameter_name not in self.parameter_config:
             raise ValueError(f"Unknown parameter: {parameter_name}")
         
-        # Special formatting for A3 offset - ensure dB prefix for value
-        if parameter_name == "a3_event_offset":
-            if not str(value).startswith('dB'):
-                value = f"dB{value}"
-        
         # Use centralized build_modify_command from mml_commands.py
+        # NOTE: A3OFFSET format verified by live test - no "dB" prefix needed
         try:
             base_command = build_modify_command(parameter_name, value, cell_id)
             # Add ne_name wrapper for Liquid Zimbabwe format

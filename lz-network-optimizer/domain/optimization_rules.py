@@ -231,6 +231,68 @@ OPTIMIZATION_RULES = {
         ],
         risk_level=5,
         description="Combined coverage and uplink power issue requires improving downlink reference signal first"
+    ),
+
+    # ========================================================================
+    # TA-BASED RULES: Coverage Optimization
+    # ========================================================================
+
+    # ========================================================================
+    # RULE 11: High TA Overshoot → Reduce Power + Alert for Downtilt
+    # ========================================================================
+    "rule_11": OptimizationRule(
+        rule_id="rule_11",
+        kpi_issue="high_ta_overshoot",
+        parameter_name="reference_signal_power_pdschcfg",
+        adjustment_direction="decrease",
+        adjustment_magnitude="medium",
+        confidence=0.85,
+        expected_improvement="Overshoot percentage should decrease by 20-30%, reducing interference to neighbors",
+        side_effects=[
+            "Slightly reduced cell-edge coverage (acceptable trade-off)",
+            "Lower power consumption (beneficial)",
+            "Manual antenna downtilt may still be needed for optimal results"
+        ],
+        risk_level=4,
+        description="High overshoot (Index 0, 10, 11 >10%) indicates antenna overshooting nearby area or excessive far coverage. Reduce power and alert engineer for manual antenna adjustment."
+    ),
+
+    # ========================================================================
+    # RULE 12: High Cell Edge Loading → Increase Power
+    # ========================================================================
+    "rule_12": OptimizationRule(
+        rule_id="rule_12",
+        kpi_issue="high_cell_edge",
+        parameter_name="reference_signal_power_pdschcfg",
+        adjustment_direction="increase",
+        adjustment_magnitude="medium",
+        confidence=0.80,
+        expected_improvement="Cell edge percentage should decrease by 10-20% as coverage extends, improving SINR for distant UEs",
+        side_effects=[
+            "Increased power consumption",
+            "Potential interference to neighboring cells (monitor neighbors)",
+            "May slightly increase handover rate"
+        ],
+        risk_level=5,
+        description="High cell edge loading (Index 9-11 >20%) indicates too many UEs at cell boundary, suggesting coverage gap. Increase power to extend healthy coverage zone."
+    ),
+
+    # ========================================================================
+    # RULE 13: Low Average TA → Manual Antenna Adjustment Alert (NOT Automated)
+    # ========================================================================
+    "rule_13": OptimizationRule(
+        rule_id="rule_13",
+        kpi_issue="low_avg_ta",
+        parameter_name="None",  # No automated parameter change
+        adjustment_direction="alert_only",
+        adjustment_magnitude="none",
+        confidence=0.90,
+        expected_improvement="Manual antenna downtilt adjustment will improve coverage distribution",
+        side_effects=[
+            "No automated action - requires engineer intervention"
+        ],
+        risk_level=0,
+        description="Low average TA index (<3.0) indicates excessive overshooting. This requires MANUAL antenna adjustment (downtilt), not automated parameter changes. Alert engineer."
     )
 }
 
@@ -275,6 +337,19 @@ def detect_kpi_issues(kpis: Dict[str, float], thresholds: Dict[str, float]) -> L
     # Control Channel Load
     if kpis.get('control_channel_load', 0) > thresholds.get('control_channel_load_max', 80.0):
         issues.append('high_control_channel_load')
+
+    # TA-Based Issues
+    # High TA Overshoot
+    if kpis.get('ta_overshoot_percentage', 0) > thresholds.get('ta_overshoot_max', 10.0):
+        issues.append('high_ta_overshoot')
+
+    # High Cell Edge Loading
+    if kpis.get('cell_edge_percentage', 0) > thresholds.get('cell_edge_max', 20.0):
+        issues.append('high_cell_edge')
+
+    # Low Average TA (overshooting)
+    if kpis.get('avg_timing_advance', 10) < thresholds.get('avg_ta_min', 3.0):
+        issues.append('low_avg_ta')
 
     # Combined issues
     if 'low_network_access_success' in issues and 'low_upload_speed' in issues:
@@ -487,10 +562,10 @@ if __name__ == "__main__":
     for rule in rules:
         print(f"  - {rule.rule_id}: {rule.description}")
 
-    # Example: Generate recommendations
+    # Example: Generate recommendations (using Bindura Zaoga baseline)
     current_params = {
-        'reference_signal_power_pdschcfg': -200,
-        'p0_nominal_pusch': -90
+        'reference_signal_power_pdschcfg': 152,  # Bindura Zaoga: 15.2 dBm
+        'p0_nominal_pusch': -67  # Bindura Zaoga: -67 dBm
     }
 
     param_limits = {

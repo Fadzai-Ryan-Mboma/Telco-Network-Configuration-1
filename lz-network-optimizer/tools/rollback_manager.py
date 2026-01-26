@@ -584,6 +584,242 @@ def list_available_rollbacks(
         return f"ERROR: Failed to list rollbacks: {str(e)}"
 
 
+    # ========================================================================
+    # AUTO-ROLLBACK MONITORING (PRODUCTION FEATURE)
+    # ========================================================================
+
+    async def monitor_and_rollback(self,
+                                   site_name: str,
+                                   cell_id: int,
+                                   optimization_id: int,
+                                   monitoring_duration: int = 15,
+                                   rollback_threshold: float = -3.0) -> Dict[str, Any]:
+        """
+        Monitor KPIs after optimization and auto-rollback if degradation detected.
+
+        This function implements the auto-rollback feature for production mode:
+        1. Wait for monitoring_duration minutes after optimization
+        2. Query current KPIs and calculate weighted score
+        3. Compare with baseline (weighted_score_before)
+        4. If degradation > threshold: Trigger automatic rollback
+        5. Log rollback reason and update optimization_history
+
+        Args:
+            site_name: Site identifier
+            cell_id: Cell ID
+            optimization_id: ID from optimization_history table
+            monitoring_duration: Minutes to monitor before decision (default: 15)
+            rollback_threshold: Negative delta threshold to trigger rollback (default: -3.0)
+
+        Returns:
+            {
+                "rollback_triggered": bool,
+                "reason": str,
+                "kpi_delta": float,
+                "baseline_score": float,
+                "current_score": float
+            }
+        """
+        import asyncio
+        import sqlite3
+
+        logger.info(f"Starting post-optimization monitoring for {site_name} cell {cell_id}")
+        logger.info(f"Monitoring duration: {monitoring_duration} minutes, Threshold: {rollback_threshold}%")
+
+        # Step 1: Get baseline KPI (before optimization)
+        baseline = self._get_optimization_baseline(optimization_id)
+        if not baseline:
+            logger.error(f"Cannot find optimization record {optimization_id}")
+            return {
+                "rollback_triggered": False,
+                "reason": "Baseline not found",
+                "kpi_delta": 0.0
+            }
+
+        baseline_score = baseline['weighted_score_before']
+        logger.info(f"Baseline weighted score: {baseline_score:.2f}")
+
+        # Step 2: Wait for monitoring duration
+        logger.info(f"Waiting {monitoring_duration} minutes before checking KPIs...")
+        await asyncio.sleep(monitoring_duration * 60)
+
+        # Step 3: Fetch current KPIs
+        try:
+            from tools.sql_tools import get_latest_kpis_direct
+            from tools.calculation_tools import calc_weighted_kpi_score
+
+            current_kpis = get_latest_kpis_direct(site_name, cell_id)
+            if not current_kpis:
+                logger.warning("Cannot fetch current KPIs - monitoring failed")
+                return {
+                    "rollback_triggered": False,
+                    "reason": "Current KPIs unavailable",
+                    "kpi_delta": 0.0
+                }
+
+            # Calculate current weighted score
+            current_score = calc_weighted_kpi_score.invoke({"kpis": current_kpis})
+            if isinstance(current_score, str):
+                # Parse score from string response
+                import re
+                match = re.search(r'Weighted Score:\s*(\d+\.?\d*)', current_score)
+                if match:
+                    current_score = float(match.group(1))
+                else:
+                    logger.error("Failed to parse weighted score")
+                    return {
+                        "rollback_triggered": False,
+                        "reason": "Score parsing failed",
+                        "kpi_delta": 0.0
+                    }
+
+            logger.info(f"Current weighted score: {current_score:.2f}")
+
+            # Step 4: Check for degradation
+            kpi_delta = current_score - baseline_score
+            logger.info(f"KPI delta: {kpi_delta:+.2f}%")
+
+            if kpi_delta < rollback_threshold:
+                # Trigger rollback
+                logger.warning(f"🔴 ROLLBACK TRIGGERED: KPI degradation {kpi_delta:.2f}% exceeds threshold {rollback_threshold}%")
+
+                # Execute rollback
+                rollback_result = await self._execute_automatic_rollback(
+                    optimization_id=optimization_id,
+                    reason=f"Automatic rollback due to KPI degradation: {kpi_delta:.2f}% (threshold: {rollback_threshold}%)"
+                )
+
+                return {
+                    "rollback_triggered": True,
+                    "reason": f"KPI degradation detected: {kpi_delta:.2f}%",
+                    "kpi_delta": kpi_delta,
+                    "baseline_score": baseline_score,
+                    "current_score": current_score,
+                    "rollback_success": rollback_result['success']
+                }
+            else:
+                logger.info(f"✅ KPIs stable - no rollback needed (delta: {kpi_delta:+.2f}%)")
+                return {
+                    "rollback_triggered": False,
+                    "reason": "KPIs stable or improved",
+                    "kpi_delta": kpi_delta,
+                    "baseline_score": baseline_score,
+                    "current_score": current_score
+                }
+
+        except Exception as e:
+            logger.error(f"Error during monitoring: {e}")
+            return {
+                "rollback_triggered": False,
+                "reason": f"Monitoring error: {str(e)}",
+                "kpi_delta": 0.0
+            }
+
+
+    def _get_optimization_baseline(self, optimization_id: int) -> Optional[Dict]:
+        """Retrieve baseline KPIs from optimization_history."""
+        import sqlite3
+
+        try:
+            # Determine database path
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            db_path = os.path.join(base_dir, "data", "lz_network.db")
+
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT site_name, cell_id, weighted_score_before, kpi_before, parameters_changed
+                FROM optimization_history
+                WHERE id = ?
+            """, (optimization_id,))
+
+            row = cursor.fetchone()
+            conn.close()
+
+            if not row:
+                return None
+
+            return {
+                "site_name": row[0],
+                "cell_id": row[1],
+                "weighted_score_before": row[2],
+                "kpi_before": json.loads(row[3]) if row[3] else {},
+                "parameters_changed": json.loads(row[4]) if row[4] else {}
+            }
+
+        except Exception as e:
+            logger.error(f"Error retrieving optimization baseline: {e}")
+            return None
+
+
+    async def _execute_automatic_rollback(self, optimization_id: int, reason: str) -> Dict[str, Any]:
+        """Execute automatic rollback and update database."""
+        import sqlite3
+
+        try:
+            # Get optimization details
+            baseline = self._get_optimization_baseline(optimization_id)
+            if not baseline:
+                return {"success": False, "error": "Baseline not found"}
+
+            site_name = baseline["site_name"]
+            parameters_changed = baseline["parameters_changed"]
+
+            logger.info(f"Executing automatic rollback for optimization {optimization_id}")
+            logger.info(f"Reverting parameters: {list(parameters_changed.keys())}")
+
+            # Execute rollback for each changed parameter
+            rollback_success = True
+            for param_name, param_info in parameters_changed.items():
+                original_value = param_info.get("old_value")
+                if original_value is None:
+                    logger.warning(f"No original value for {param_name}, skipping")
+                    continue
+
+                # Build rollback_id
+                rollback_id = f"{site_name}_{param_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+                # Execute rollback
+                result = execute_rollback.invoke({"rollback_id": rollback_id})
+
+                if "ERROR" in result:
+                    logger.error(f"Rollback failed for {param_name}: {result}")
+                    rollback_success = False
+                else:
+                    logger.info(f"✅ Rolled back {param_name} to {original_value}")
+
+            # Update optimization_history
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            db_path = os.path.join(base_dir, "data", "lz_network.db")
+
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                UPDATE optimization_history
+                SET rolled_back = 1,
+                    rollback_reason = ?,
+                    rollback_timestamp = ?
+                WHERE id = ?
+            """, (reason, datetime.now().isoformat(), optimization_id))
+
+            conn.commit()
+            conn.close()
+
+            logger.info(f"Updated optimization_history: optimization {optimization_id} marked as rolled back")
+
+            return {
+                "success": rollback_success,
+                "optimization_id": optimization_id,
+                "reason": reason
+            }
+
+        except Exception as e:
+            logger.error(f"Error executing automatic rollback: {e}")
+            return {"success": False, "error": str(e)}
+
+
 # ============================================================================
 # Tool List for Agent Registration
 # ============================================================================

@@ -14,6 +14,8 @@ from typing import Dict, Any, Optional, List
 MML_COMMANDS = {
     # ========================================================================
     # PDSCH Configuration (reference_signal_power_pdschcfg)
+    # VERIFIED: Correct syntax confirmed by live test (RetCode: 0 with value=49)
+    # NOTE: Value must be within RRU capability range (typically 40-60 for 0.1dBm units)
     # ========================================================================
     "reference_signal_power_pdschcfg": {
         "query": "LST PDSCHCFG: LOCALCELLID={cell_id};",
@@ -24,7 +26,7 @@ MML_COMMANDS = {
         "description": "Query/Modify PDSCH Configuration - Reference Signal Power",
         "value_units": "0.1 dBm",
         "example_query": "LST PDSCHCFG: LOCALCELLID=1;",
-        "example_modify": "MOD PDSCHCFG: LOCALCELLID=1, REFERENCESIGNALPWR=-200;"
+        "example_modify": "MOD PDSCHCFG: LOCALCELLID=1, REFERENCESIGNALPWR=49;"
     },
 
     # ========================================================================
@@ -45,17 +47,18 @@ MML_COMMANDS = {
     # ========================================================================
     # A3 Event Configuration (a3_event_offset)
     # UPDATED: Uses LST UECOOPERATIONPARA (global query - returns all cells)
+    # VERIFIED: Correct syntax confirmed by live test (RetCode: 0)
     # ========================================================================
     "a3_event_offset": {
         "query": "LST UECOOPERATIONPARA:;",
         "query_global": True,
-        "modify": "MOD UECOOPERATIONPARA: LOCALCELLID={cell_id}, A3OFFSET=dB{value};",
+        "modify": "MOD UECOOPERATIONPARA: LOCALCELLID={cell_id}, A3OFFSET={value};",
         "parameter_field": "A3 Handover Threshold Offset",
         "parameter_field_alt": "A3OFFSET",
         "description": "Query/Modify A3 Event Configuration - Handover Offset",
         "value_units": "dB",
         "example_query": "LST UECOOPERATIONPARA:;",
-        "example_modify": "MOD UECOOPERATIONPARA: LOCALCELLID=1, A3OFFSET=dB3;"
+        "example_modify": "MOD UECOOPERATIONPARA: LOCALCELLID=1, A3OFFSET=3;"
     },
 
     # ========================================================================
@@ -95,17 +98,21 @@ MML_COMMANDS = {
 
     # ========================================================================
     # PDCCH Aggregation Level Configuration (pdcch_aggregation_level)
+    # WARNING: Parameter name PDCCHAGGLVL returns "Parameter not found" error
+    # NOTE: Query shows "SignalCongregateLevel = CONGREG_LV4" but MOD commands fail
+    # STATUS: May be read-only or require different command - needs vendor documentation
+    # RECOMMENDATION: Exclude from automated optimization until correct syntax confirmed
     # ========================================================================
     "pdcch_aggregation_level": {
         "query": "LST CELLPDCCHALGO: LOCALCELLID={cell_id};",
         "query_global": False,
         "modify": "MOD CELLPDCCHALGO: LOCALCELLID={cell_id}, PDCCHAGGLVL={value};",
-        "parameter_field": "PDCCH Aggregation Strategy Level",
-        "parameter_field_alt": "PDCCHAGGLVL",
-        "description": "Query/Modify PDCCH Aggregation Level - Control Channel Resource Allocation",
-        "value_units": "level (1, 2, 4, 8)",
+        "parameter_field": "SignalCongregateLevel",
+        "parameter_field_alt": "SIGNALCONGREGLEVEL",
+        "description": "Query PDCCH Aggregation Level - Control Channel (READ-ONLY/UNVERIFIED)",
+        "value_units": "level (CONGREG_LV1, CONGREG_LV2, CONGREG_LV4, CONGREG_LV8)",
         "example_query": "LST CELLPDCCHALGO: LOCALCELLID=1;",
-        "example_modify": "MOD CELLPDCCHALGO: LOCALCELLID=1, PDCCHAGGLVL=4;"
+        "example_modify": "MOD CELLPDCCHALGO: LOCALCELLID=1, PDCCHAGGLVL=4;  # UNVERIFIED"
     },
 
     # ========================================================================
@@ -347,7 +354,7 @@ def build_modify_command_template(parameter_name: str, value: Any) -> str:
         >>> template = build_modify_command_template("a3_event_offset", 3)
         >>> for cell_id in [1, 2, 3, 4, 5, 6]:
         ...     command = template.format(cell_id=cell_id)
-        ...     # command: "MOD EUTRANMEASUREMENT: LOCALCELLID=1, EUTRANEVTID=3, A3OFFSET=3;"
+        ...     # command: "MOD UECOOPERATIONPARA: LOCALCELLID=1, A3OFFSET=3;"
     """
     if parameter_name not in MML_COMMANDS:
         raise ValueError(f"Unknown parameter: {parameter_name}. Available: {list(MML_COMMANDS.keys())}")

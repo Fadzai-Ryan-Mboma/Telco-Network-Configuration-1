@@ -5,7 +5,6 @@ Created: 2025-10-30
 """
 
 from typing import Dict, Any
-from langchain_nvidia_ai_endpoints import ChatNVIDIA
 from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import PromptTemplate
 import sys
@@ -23,7 +22,8 @@ from tools.sql_tools import execute_historical_sql
 from tools.dummy_responses import get_config_recommendation_dummy, DUMMY_CONFIG_RECOMMENDATIONS
 from prompts.system_prompts import CONFIGURATION_AGENT_PROMPT
 from prompts.few_shot_examples import format_few_shot_examples
-from utils.timeout_handler import safe_llm_call, TimeoutError, CONFIG_TIMEOUT
+from utils.timeout_handler import TimeoutHandler, TimeoutError as LLMTimeoutError, CONFIG_TIMEOUT
+from utils.llm_factory import get_llm_client
 
 logger = logging.getLogger(__name__)
 
@@ -46,65 +46,140 @@ def config_agent(state: Dict[str, Any]) -> Dict[str, Any]:
     logger.info(f"📝 Task: Recommendations for {site_name}, Issue: {primary_kpi_issue}")
 
     # ==========================================================================
-    # TIER 1: Try LLM Agent with Tools (Primary)
+    # TIER 1: Try LLM Agent with Pre-fetched Data (Primary - No Tool Calls)
     # ==========================================================================
     def try_llm_agent():
-        """Attempt LLM-based configuration recommendations."""
-        logger.info("🔄 TIER 1: Attempting LLM agent configuration...")
+        """
+        Attempt LLM-based configuration recommendations with pre-fetched data.
+        WORKAROUND: Pre-fetch current parameters to avoid NVIDIA tool calling issues.
+        """
+        logger.info("🔄 TIER 1: Attempting LLM agent configuration with pre-fetched data...")
 
-        llm = ChatNVIDIA(
-            model="meta/llama-3.1-70b-instruct",
-            api_key=os.getenv("NVIDIA_API_KEY"),
-            temperature=0.7
-        )
+        # PRE-FETCH DATA: Get current parameter values directly
+        logger.info("📊 Pre-fetching current parameter values from Huawei API...")
 
-        tools = [query_huawei_parameter, validate_parameter_range, execute_historical_sql]
+        from domain.liquid_zimbabwe_parameters import LiquidZimbabweParameterManager
+        param_manager = LiquidZimbabweParameterManager()
+
+        current_params = {}
+        try:
+            # Query all 5 tunable parameters
+            for param_name in param_manager.parameter_config.keys():
+                try:
+                    result = query_huawei_parameter.invoke({
+                        "site_name": site_name,
+                        "parameter_name": param_name,
+                        "cell_id": state.get("cell_id", 1)
+                    })
+                    current_params[param_name] = result
+                    logger.info(f"  ✅ {param_name}: {result}")
+                except Exception as e:
+                    logger.warning(f"  ⚠️  Failed to query {param_name}: {e}")
+                    current_params[param_name] = "Query failed"
+
+            logger.info("✅ Pre-fetched current parameters")
+
+        except Exception as e:
+            logger.warning(f"⚠️  Failed to pre-fetch parameters: {e}")
+            current_params = {"error": "Failed to query current parameters"}
+
+        # Format current parameters for LLM
+        current_params_text = "CURRENT PARAMETER VALUES:\n"
+        for param_name, value in current_params.items():
+            current_params_text += f"  - {param_name}: {value}\n"
+
+        # Use LLM factory to get client (supports OpenAI, NVIDIA, etc.)
+        llm = get_llm_client()
 
         # Get relevant few-shot examples
         few_shot_examples = format_few_shot_examples(primary_kpi_issue, top_n=2)
 
+        # NO TOOLS - Direct prompting with pre-fetched data
         task = f"""
-Site: {site_name}
+Generate parameter recommendations for site: {site_name}
 Primary KPI Issue: {primary_kpi_issue}
 KPI Analytics: {kpi_analytics_output}
 
-YOUR TASK:
-1. Query current parameter values for relevant parameters
-2. Review few-shot examples below to learn from past successes
-3. Match KPI issue to optimization rules
-4. Recommend parameter changes following patterns from examples
-5. Validate proposed values using validate_parameter_range
-6. Provide clear recommendations in this format:
+{current_params_text}
 
-PARAMETER_RECOMMENDATIONS:
-- parameter: <name>
-  current: <value>
-  recommended: <value>
-  reason: <explanation>
-  expected_improvement: <description>
-  confidence: <0-100%>
-
+FEW-SHOT EXAMPLES (similar cases):
 {few_shot_examples}
+
+YOUR TASK:
+1. Review the current parameter values provided above
+2. Review the few-shot examples for similar KPI issues
+3. Match the KPI issue to optimization rules:
+   - Low network access → Increase reference signal power
+   - Low download speed → Increase reference signal power
+   - Low upload speed → Increase P0 nominal PUSCH
+   - High handover failures → Adjust A3 offset
+   - Radio link failures → Increase T310 timer
+4. Recommend specific parameter changes with exact values
+5. Calculate expected KPI improvements
+
+CRITICAL: Provide complete detailed recommendations following the FINAL ANSWER FORMAT. Include:
+- ISSUE IDENTIFIED with context
+- PRIMARY PARAMETER with exact current/recommended values (e.g., 150 → 160 for power, MS1000_T310 → MS2000_T310 for timer)
+- Exact change with unit (+10 units = +1.0 dBm, +1000 ms)
+- Detailed reasoning with projections (current% → target%)
+- Expected KPI improvements with specific numbers
+- Risk assessment with scores
+- Technical effects
+
+Write your complete detailed recommendations NOW:
 """
 
         # Build system prompt with task
-        system_prompt = CONFIGURATION_AGENT_PROMPT + "\n\n" + task + "\n\nUSE TOOLS TO COMPLETE THIS TASK."
+        system_prompt = CONFIGURATION_AGENT_PROMPT + "\n\n" + task
 
-        # Create ReAct agent (LangGraph version)
-        agent = create_react_agent(llm, tools, prompt=system_prompt)
+        # Direct LLM call (no ReAct agent, no tool calling)
+        from langchain_core.messages import HumanMessage, SystemMessage
 
-        # Execute agent
-        result = agent.invoke({"messages": [{"role": "user", "content": task}]})
+        # Execute LLM with timeout protection (90s for recommendation generation - NVIDIA API can be slow)
+        timeout_handler = TimeoutHandler(timeout_seconds=90)
 
-        # Extract output from messages
-        if "messages" in result and len(result["messages"]) > 0:
-            output = result["messages"][-1].content if hasattr(result["messages"][-1], 'content') else str(result["messages"][-1])
-        else:
-            output = str(result)
+        try:
+            with timeout_handler.timeout_context("Configuration Agent LLM call"):
+                # Direct invoke - no tool calling needed
+                messages = [
+                    SystemMessage(content=system_prompt),
+                    HumanMessage(content=task)
+                ]
+                result = llm.invoke(messages)
 
-        # Detect failures in LLM output
+        except LLMTimeoutError as timeout_error:
+            logger.error(f"❌ CONFIGURATION AGENT TIMEOUT: {timeout_error}")
+            logger.error(f"⚠️  The LLM took longer than 90 seconds to respond")
+            logger.error(f"⚠️  NVIDIA API is very slow - consider switching to Nemotron-4 340B or GPT-4o")
+            raise Exception(f"LLM timeout - fallback will be attempted")
+
+        # Extract output directly from LLM response (no agent wrapping)
+        output = result.content if hasattr(result, 'content') else str(result)
+
+        logger.info(f"✅ LLM response received: {len(output)} chars")
+        logger.info(f"🔍 Response preview: {output[:300]}...")
+
+        # Validate output quality
+        if not output or len(output) < 100:
+            logger.warning(f"⚠️  LLM response too short: {len(output)} chars")
+            raise Exception(f"LLM output too short - falling back to Tier 2")
+
+        # Check for error messages in output
         if "ERROR" in output.upper():
+            logger.warning(f"⚠️  LLM generated error output")
             raise Exception(f"LLM generated error output: {output[:200]}")
+
+        # Validate that we got actual recommendations (not just echoing)
+        has_detailed_sections = (
+            'PARAMETER' in output.upper() or
+            'RECOMMENDED' in output.upper() or
+            'ISSUE' in output.upper() or
+            'CHANGE' in output.upper()
+        )
+
+        if not has_detailed_sections:
+            logger.warning(f"⚠️  LLM output incomplete (no detailed recommendation sections)")
+            raise Exception(f"LLM output incomplete - falling back to Tier 2")
 
         return output
 
@@ -112,15 +187,20 @@ PARAMETER_RECOMMENDATIONS:
     # TIER 2: Rule-Based Recommendations (Fallback - Always Succeeds)
     # ==========================================================================
     def use_rule_based_config():
-        """Fallback: Use rule-based configuration recommendations from dummy data."""
-        logger.info("🔄 TIER 2: Using rule-based configuration recommendations...")
+        """
+        Fallback: DISABLED - No dummy data fallback.
+        Raises explicit error if LLM fails - forces transparency.
+        """
+        logger.error("❌ CONFIGURATION AGENT LLM FAILED")
+        logger.error("❌ Dummy fallbacks are DISABLED in production mode")
+        logger.error("❌ Cannot generate recommendations without LLM")
 
-        # Get dummy recommendation based on primary KPI issue
-        output = get_config_recommendation_dummy(primary_kpi_issue)
-
-        logger.info(f"✅ Rule-based recommendations generated for issue: {primary_kpi_issue}")
-
-        return output
+        raise Exception(
+            "Configuration Agent LLM failed. "
+            "Dummy fallbacks are disabled. "
+            "Check NVIDIA API connectivity and LLM configuration. "
+            f"Site: {site_name}, Issue: {primary_kpi_issue}"
+        )
 
     # ==========================================================================
     # EXECUTION LOGIC: Try Tier 1 → Tier 2
@@ -129,12 +209,7 @@ PARAMETER_RECOMMENDATIONS:
 
     try:
         # TIER 1: Try LLM with timeout
-        output = safe_llm_call(
-            llm_function=try_llm_agent,
-            fallback_function=lambda: None,  # Return None to trigger Tier 2
-            timeout_seconds=CONFIG_TIMEOUT,
-            operation_name="Configuration Agent (LLM)"
-        )
+        output = try_llm_agent()
 
         if output is not None:
             logger.info("✅ TIER 1 SUCCESS: LLM configuration recommendations complete")
@@ -143,6 +218,8 @@ PARAMETER_RECOMMENDATIONS:
 
     except Exception as e:
         logger.warning(f"⚠️  TIER 1 failed: {e}")
+        logger.warning("⚠️  WARNING: Falling back to DUMMY recommendations!")
+        logger.warning("⚠️  Dummy values (e.g., 152 for power) may not match actual network!")
 
         # TIER 2: Use rule-based fallback
         output = use_rule_based_config()

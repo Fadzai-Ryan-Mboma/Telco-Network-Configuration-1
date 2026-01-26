@@ -255,13 +255,13 @@ TOOL USAGE EXAMPLES:
 TOOL USAGE EXAMPLES:
 
 1. Validate Parameter Range:
-   validate_parameter_range(parameter_name="reference_signal_power_pdschcfg", proposed_value=-180)
+   validate_parameter_range(parameter_name="reference_signal_power_pdschcfg", proposed_value=172)
 
-2. Assess Individual Risk:
-   assess_risk_score(parameter_name="reference_signal_power_pdschcfg", current_value=-200, proposed_value=-180, kpi_issue="low_download_speed")
+2. Assess Individual Risk (using Bindura Zaoga baseline):
+   assess_risk_score(parameter_name="reference_signal_power_pdschcfg", current_value=152, proposed_value=172, kpi_issue="low_download_speed")
 
 3. Validate Complete Plan:
-   validate_optimization_safety(parameter_changes_json='[{"parameter":"reference_signal_power_pdschcfg","current":-200,"proposed":-180,"kpi_issue":"low_download_speed"}]', site_name="Site1", max_risk_threshold=7)
+   validate_optimization_safety(parameter_changes_json='[{"parameter":"reference_signal_power_pdschcfg","current":152,"proposed":172,"kpi_issue":"low_download_speed"}]', site_name="Site1", max_risk_threshold=7)
 """,
 
         "mml_executor": """
@@ -312,3 +312,214 @@ if __name__ == "__main__":
     print(context)
     print("\n\n")
     print(build_tool_examples("configuration"))
+
+
+# ============================================================================
+# CONTEXT BUILDER: TA Distribution (NEW)
+# ============================================================================
+
+def build_ta_context(site_name: str, cell_id: Optional[int] = None, days: int = 7) -> str:
+    """
+    Build TA distribution context for LLM prompts.
+
+    Args:
+        site_name: Site identifier
+        cell_id: Optional cell ID (None = aggregate all cells)
+        days: Days of history to retrieve
+
+    Returns:
+        Formatted TA context string with distribution and coverage assessment
+    """
+    try:
+        from tools.sql_tools import get_ta_metrics_direct
+
+        ta_data = get_ta_metrics_direct(site_name, cell_id, days)
+
+        if not ta_data or len(ta_data) == 0:
+            return "\nTA DISTRIBUTION: Not available for this site\n"
+
+        # Latest TA record
+        latest = ta_data[0]
+
+        context = "\n" + "=" * 80 + "\n"
+        context += "TIMING ADVANCE DISTRIBUTION ANALYSIS\n"
+        context += "=" * 80 + "\n\n"
+
+        context += f"**Site**: {site_name}\n"
+        context += f"**Cell**: {cell_id if cell_id else 'All cells (aggregated)'}\n"
+        context += f"**Last Update**: {latest.get('timestamp')}\n"
+        context += f"**Data Integrity**: {latest.get('integrity', 100):.1f}%\n\n"
+
+        # Key Metrics
+        context += "### Key Coverage Metrics\n"
+        context += f"- **Total UEs**: {latest.get('total_ues', 0):,}\n"
+        context += f"- **Avg TA Index**: {latest.get('avg_ta_index', 0):.2f} "
+        context += f"(Typical distance: {_get_distance_range(latest.get('avg_ta_index', 0))})\n"
+
+        overshoot = latest.get('overshoot_percentage', 0)
+        context += f"- **Overshoot %**: {overshoot:.1f}% "
+        context += "⚠️ HIGH\n" if overshoot > 10 else "✓ Healthy\n"
+
+        cell_edge = latest.get('cell_edge_percentage', 0)
+        context += f"- **Cell Edge %**: {cell_edge:.1f}% "
+        context += "⚠️ HIGH\n" if cell_edge > 20 else "✓ Healthy\n"
+
+        rach = latest.get('rach_success_rate')
+        if rach:
+            context += f"- **RACH Success**: {rach:.1f}%\n"
+        context += "\n"
+
+        # UE Distance Distribution Table
+        context += "### UE Distance Distribution\n"
+        context += "```\n"
+        context += "Index | Distance Range    | UE Count | Percentage | Assessment\n"
+        context += "------|-------------------|----------|------------|------------------\n"
+
+        total_ues = latest.get('total_ues', 1)  # Avoid division by zero
+
+        for i in range(12):
+            ue_count = latest.get(f'ta_index_{i}', 0)
+            percentage = (ue_count / total_ues * 100) if total_ues > 0 else 0
+            distance_range = _get_ta_distance_range(i)
+            assessment = _assess_ta_index(i, percentage)
+
+            context += f"{i:5} | {distance_range:17} | {ue_count:8,} | {percentage:9.1f}% | {assessment}\n"
+
+        context += "```\n\n"
+
+        # Coverage Assessment
+        context += "### Coverage Assessment\n"
+        context += _assess_ta_distribution(latest)
+        context += "\n"
+
+        # Recommendations
+        context += "### TA-Based Recommendations\n"
+        recommendations = _generate_ta_recommendations(latest)
+        if recommendations:
+            for rec in recommendations:
+                context += f"- {rec}\n"
+        else:
+            context += "- ✅ Coverage distribution is healthy - no TA-based issues detected.\n"
+        context += "\n"
+
+        return context
+
+    except Exception as e:
+        return f"\nTA DISTRIBUTION: Error loading data - {str(e)}\n"
+
+
+def _get_distance_range(avg_index: float) -> str:
+    """Get distance range description for average TA index."""
+    if avg_index < 2:
+        return "<312m (Very close, possible overshoot)"
+    elif avg_index < 4:
+        return "312-781m (Close, healthy coverage)"
+    elif avg_index < 7:
+        return "781-2344m (Optimal coverage)"
+    elif avg_index < 9:
+        return "2344-7813m (Far, cell edge approaching)"
+    else:
+        return ">7813m (Excessive overshoot)"
+
+
+def _get_ta_distance_range(index: int) -> str:
+    """Get distance range for specific TA index."""
+    ranges = {
+        0: "0-78m",
+        1: "78-156m",
+        2: "156-312m",
+        3: "312-547m",
+        4: "547-781m",
+        5: "781-1172m",
+        6: "1172-1563m",
+        7: "1563-2344m",
+        8: "2344-3906m",
+        9: "3906-7813m",
+        10: "7813-15625m",
+        11: "15625-31250m"
+    }
+    return ranges.get(index, "Unknown")
+
+
+def _assess_ta_index(index: int, percentage: float) -> str:
+    """Assess individual TA index percentage."""
+    if index == 0 and percentage > 5:
+        return "⚠️ Overshoot"
+    elif index in [10, 11] and percentage > 3:
+        return "⚠️ Far overshoot"
+    elif index == 9 and percentage > 10:
+        return "⚠️ Cell edge"
+    elif index in [5, 6] and percentage > 10:
+        return "✓ Optimal"
+    else:
+        return ""
+
+
+def _assess_ta_distribution(ta_record: dict) -> str:
+    """Assess TA distribution and provide coverage analysis."""
+    overshoot = ta_record.get('overshoot_percentage', 0)
+    cell_edge = ta_record.get('cell_edge_percentage', 0)
+    avg_ta = ta_record.get('avg_ta_index', 0)
+
+    issues = []
+
+    if overshoot > 15:
+        issues.append("🔴 **CRITICAL**: Overshoot >15% - immediate action required")
+        issues.append("   Recommendation: Reduce reference_signal_power by 1-2 dB AND alert engineer for manual antenna downtilt")
+    elif overshoot > 10:
+        issues.append("⚠️ **WARNING**: Elevated overshoot (>10%)")
+        issues.append("   Recommendation: Reduce reference_signal_power by 1 dB or consider antenna downtilt")
+
+    if cell_edge > 25:
+        issues.append("🔴 **CRITICAL**: Cell edge loading >25% - power increase required")
+        issues.append("   Recommendation: Increase reference_signal_power by 2-3 dB to extend coverage")
+    elif cell_edge > 20:
+        issues.append("⚠️ **WARNING**: Elevated cell edge loading (>20%)")
+        issues.append("   Recommendation: Consider increasing reference_signal_power by 1-2 dB")
+
+    if avg_ta < 3:
+        issues.append("⚠️ **WARNING**: Average TA too low (<3.0) - overshooting detected")
+        issues.append("   Recommendation: MANUAL ANTENNA ADJUSTMENT required (automated parameter changes not recommended)")
+    elif avg_ta > 8:
+        issues.append("⚠️ **WARNING**: Average TA too high (>8.0) - undershooting or coverage gap")
+        issues.append("   Recommendation: Increase reference_signal_power to improve coverage")
+
+    if not issues:
+        return "✅ Coverage distribution is **HEALTHY** - no TA-based issues detected.\n" + \
+               "   - Overshoot percentage within target (<5%)\n" + \
+               "   - Cell edge loading acceptable (<20%)\n" + \
+               "   - Average TA index in optimal range (4-7)"
+
+    return "\n".join(issues)
+
+
+def _generate_ta_recommendations(ta_record: dict) -> List[str]:
+    """Generate actionable recommendations based on TA data."""
+    recommendations = []
+
+    overshoot = ta_record.get('overshoot_percentage', 0)
+    cell_edge = ta_record.get('cell_edge_percentage', 0)
+    avg_ta = ta_record.get('avg_ta_index', 0)
+
+    # High overshoot recommendations
+    if overshoot > 10:
+        recommendations.append(f"Apply **Rule 11**: High overshoot ({overshoot:.1f}%) → Reduce reference_signal_power by 1-2 dB")
+        if overshoot > 15:
+            recommendations.append("🚨 Alert engineer for **manual antenna downtilt** inspection")
+
+    # High cell edge recommendations
+    if cell_edge > 20:
+        recommendations.append(f"Apply **Rule 12**: High cell edge ({cell_edge:.1f}%) → Increase reference_signal_power by 1-3 dB")
+        recommendations.append("Monitor neighbor cells for increased interference after power increase")
+
+    # Low avg TA recommendations
+    if avg_ta < 3:
+        recommendations.append(f"Apply **Rule 13**: Low avg TA ({avg_ta:.2f}) → ALERT ONLY - Manual antenna adjustment needed")
+        recommendations.append("Do NOT attempt automated parameter optimization for this issue")
+
+    # Conflicting recommendations check
+    if overshoot > 10 and cell_edge > 20:
+        recommendations.append("⚠️ **CONFLICT DETECTED**: High overshoot AND high cell edge present")
+        recommendations.append("Priority: Address overshoot first (higher immediate risk), then monitor cell edge")
+
+    return recommendations
