@@ -19,6 +19,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tools.huawei_tools import query_huawei_parameter, validate_parameter_range
 from tools.sql_tools import execute_historical_sql
+from ui.database_helper import get_site_parameters, check_api_status
 from tools.dummy_responses import get_config_recommendation_dummy, DUMMY_CONFIG_RECOMMENDATIONS
 from prompts.system_prompts import CONFIGURATION_AGENT_PROMPT
 from prompts.few_shot_examples import format_few_shot_examples
@@ -55,33 +56,59 @@ def config_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         """
         logger.info("🔄 TIER 1: Attempting LLM agent configuration with pre-fetched data...")
 
-        # PRE-FETCH DATA: Get current parameter values directly
-        logger.info("📊 Pre-fetching current parameter values from Huawei API...")
+        # PRE-FETCH DATA: Get current parameter values
+        # First check if Huawei API is reachable - if not, use database values
+        api_status = check_api_status(site_name)
+        use_live_api = "Connected" in api_status.get("api", "")
+
+        if use_live_api:
+            logger.info("📊 Pre-fetching current parameter values from Huawei API...")
+        else:
+            logger.info("📊 Huawei API unavailable - using database parameter values...")
 
         from domain.liquid_zimbabwe_parameters import LiquidZimbabweParameterManager
         param_manager = LiquidZimbabweParameterManager()
 
         current_params = {}
-        try:
-            # Query all 5 tunable parameters
-            for param_name in param_manager.parameter_config.keys():
-                try:
-                    result = query_huawei_parameter.invoke({
-                        "site_name": site_name,
-                        "parameter_name": param_name,
-                        "cell_id": state.get("cell_id", 1)
-                    })
-                    current_params[param_name] = result
-                    logger.info(f"  ✅ {param_name}: {result}")
-                except Exception as e:
-                    logger.warning(f"  ⚠️  Failed to query {param_name}: {e}")
-                    current_params[param_name] = "Query failed"
 
-            logger.info("✅ Pre-fetched current parameters")
+        if use_live_api:
+            # Try live API
+            try:
+                for param_name in param_manager.parameter_config.keys():
+                    try:
+                        result = query_huawei_parameter.invoke({
+                            "site_name": site_name,
+                            "parameter_name": param_name,
+                            "cell_id": state.get("cell_id", 1)
+                        })
+                        current_params[param_name] = result
+                        logger.info(f"  ✅ {param_name}: {result}")
+                    except Exception as e:
+                        logger.warning(f"  ⚠️  Failed to query {param_name}: {e}")
+                        current_params[param_name] = "Query failed"
+                logger.info("✅ Pre-fetched current parameters from API")
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to pre-fetch from API: {e}")
+                use_live_api = False
 
-        except Exception as e:
-            logger.warning(f"⚠️  Failed to pre-fetch parameters: {e}")
-            current_params = {"error": "Failed to query current parameters"}
+        if not use_live_api:
+            # Use database values
+            try:
+                db_params = get_site_parameters(site_name)
+                if db_params:
+                    current_params = {
+                        "reference_signal_power_pdschcfg": db_params.get("reference_signal_power_pdschcfg", "N/A"),
+                        "a3_event_offset": db_params.get("a3_event_offset", "N/A"),
+                        "t310_timer": db_params.get("t310_timer", "N/A"),
+                        "p0_nominal_pusch": db_params.get("p0_nominal_pusch", "N/A"),
+                        "pdcch_aggregation_level": db_params.get("pdcch_aggregation_level", "N/A"),
+                    }
+                    logger.info("✅ Pre-fetched current parameters from database")
+                else:
+                    current_params = {"error": "No parameters found in database"}
+            except Exception as e:
+                logger.warning(f"⚠️  Failed to get database parameters: {e}")
+                current_params = {"error": "Failed to query parameters"}
 
         # Format current parameters for LLM
         current_params_text = "CURRENT PARAMETER VALUES:\n"
@@ -164,10 +191,18 @@ Write your complete detailed recommendations NOW:
             logger.warning(f"⚠️  LLM response too short: {len(output)} chars")
             raise Exception(f"LLM output too short - falling back to Tier 2")
 
-        # Check for error messages in output
-        if "ERROR" in output.upper():
-            logger.warning(f"⚠️  LLM generated error output")
-            raise Exception(f"LLM generated error output: {output[:200]}")
+        # Check for critical LLM errors (not parameter fetch errors which are expected when Huawei API is down)
+        # Only flag as error if the LLM itself failed to generate recommendations
+        llm_error_indicators = [
+            "I CANNOT GENERATE",
+            "I'M UNABLE TO",
+            "UNABLE TO PROCESS",
+            "CANNOT PROVIDE RECOMMENDATIONS",
+            "NO RECOMMENDATIONS POSSIBLE"
+        ]
+        if any(indicator in output.upper() for indicator in llm_error_indicators):
+            logger.warning(f"⚠️  LLM could not generate recommendations")
+            raise Exception(f"LLM could not generate recommendations: {output[:200]}")
 
         # Validate that we got actual recommendations (not just echoing)
         has_detailed_sections = (
