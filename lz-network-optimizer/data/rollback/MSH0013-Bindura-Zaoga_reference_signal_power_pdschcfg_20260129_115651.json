@@ -1,0 +1,42 @@
+{
+  "rollback_id": "MSH0013-Bindura-Zaoga_reference_signal_power_pdschcfg_20260129_115651",
+  "timestamp": "2026-01-29T11:56:53.125508",
+  "parameter_name": "reference_signal_power_pdschcfg",
+  "site_name": "MSH0013-Bindura-Zaoga",
+  "cell_states": [
+    {
+      "cell_id": 1,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129135652_16927', 'results': [{'name': 'MSH0013-Bindura-Zaoga', 'report': '+++    MSH0013-Bindura-Zaoga        2026-01-29 19:56:50\\r\\nO&M    #806357923\\r\\n%%/*1880285457*/LST PDSCHCFG:LOCALCELLID=1;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  1\\r\\n      Reference signal power(0.1dBm)  =  122\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 2,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129135652_16928', 'results': [{'name': 'MSH0013-Bindura-Zaoga', 'report': '+++    MSH0013-Bindura-Zaoga        2026-01-29 19:56:51\\r\\nO&M    #806357924\\r\\n%%/*1880285459*/LST PDSCHCFG:LOCALCELLID=2;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  2\\r\\n      Reference signal power(0.1dBm)  =  152\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 3,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129135652_16929', 'results': [{'name': 'MSH0013-Bindura-Zaoga', 'report': '+++    MSH0013-Bindura-Zaoga        2026-01-29 19:56:51\\r\\nO&M    #806357925\\r\\n%%/*1880285461*/LST PDSCHCFG:LOCALCELLID=3;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  3\\r\\n      Reference signal power(0.1dBm)  =  122\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 4,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129135652_16930', 'results': [{'name': 'MSH0013-Bindura-Zaoga', 'report': '+++    MSH0013-Bindura-Zaoga        2026-01-29 19:56:51\\r\\nO&M    #806357926\\r\\n%%/*1880285463*/LST PDSCHCFG:LOCALCELLID=4;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  4\\r\\n      Reference signal power(0.1dBm)  =  134\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 5,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129135653_16931', 'results': [{'name': 'MSH0013-Bindura-Zaoga', 'report': '+++    MSH0013-Bindura-Zaoga        2026-01-29 19:56:51\\r\\nO&M    #806357927\\r\\n%%/*1880285465*/LST PDSCHCFG:LOCALCELLID=5;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  5\\r\\n      Reference signal power(0.1dBm)  =  164\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 6,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129135653_16932', 'results': [{'name': 'MSH0013-Bindura-Zaoga', 'report': '+++    MSH0013-Bindura-Zaoga        2026-01-29 19:56:51\\r\\nO&M    #806357928\\r\\n%%/*1880285467*/LST PDSCHCFG:LOCALCELLID=6;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  6\\r\\n      Reference signal power(0.1dBm)  =  134\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    }
+  ],
+  "rollback_commands": [],
+  "status": "completed",
+  "rollback_results": [],
+  "rollback_timestamp": "2026-01-29T11:57:07.328394"
+}

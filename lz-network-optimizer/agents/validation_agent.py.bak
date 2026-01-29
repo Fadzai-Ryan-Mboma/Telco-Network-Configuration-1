@@ -157,7 +157,7 @@ DO NOT stop after tool execution - provide the full detailed textual validation!
         agent = create_react_agent(llm, tools, prompt=system_prompt)
 
         # Execute agent with timeout protection (30s for safety checks)
-        timeout_handler = TimeoutHandler(timeout_seconds=90)  # Increased from 30s to 90s for NVIDIA LLM
+        timeout_handler = TimeoutHandler(timeout_seconds=30)
 
         try:
             with timeout_handler.timeout_context("Validation Agent LLM call"):
@@ -328,7 +328,7 @@ Write your complete detailed validation analysis NOW:
                 if not within_bounds:
                     status = "REJECTED"
                     reason = f"Parameter {change['parameter']} = {change['new_value']} out of valid range"
-                elif risk_score > 8:  # Max risk threshold
+                elif risk_score > 7:  # Max risk threshold
                     status = "REJECTED"
                     reason = f"Risk score {risk_score}/10 exceeds threshold"
                 elif risk_score >= 5 or magnitude_pct > 20:

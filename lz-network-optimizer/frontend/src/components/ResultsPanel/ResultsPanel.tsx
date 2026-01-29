@@ -110,7 +110,11 @@ export default function ResultsPanel({
         {/* Right Column - Risk & Impact */}
         <div className="space-y-6">
           {/* Risk Assessment */}
-          <RiskGauge score={result.risk_score} level={result.risk_level} />
+          <RiskGauge
+            score={result.risk_score}
+            level={result.risk_level}
+            details={result.detailed_risk}
+          />
 
           {/* Expected Impact */}
           <div>

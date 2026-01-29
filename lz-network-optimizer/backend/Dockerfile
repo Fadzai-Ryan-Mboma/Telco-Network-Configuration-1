@@ -22,8 +22,11 @@ COPY . .
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
 # Expose port
-EXPOSE 8000
+EXPOSE 8503
 
 # Run the backend
-CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["python", "-m", "uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8503"]

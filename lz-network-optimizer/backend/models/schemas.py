@@ -80,8 +80,8 @@ class OptimizationResult(BaseModel):
     detailed_issue: Optional[str] = None
     recommendations: List[ParameterRecommendation] = []
     detailed_recommendations: Optional[str] = None
-    risk_level: str = "LOW"  # "LOW", "MEDIUM", "HIGH"
-    risk_score: float = 0.0
+    risk_level: str = "MEDIUM"  # "LOW", "MEDIUM", "HIGH" - Default to MEDIUM
+    risk_score: float = 5.0  # Default to medium risk (5.0), not 0.0
     detailed_risk: Optional[str] = None
     expected_impact: str = ""
     detailed_impact: Optional[str] = None

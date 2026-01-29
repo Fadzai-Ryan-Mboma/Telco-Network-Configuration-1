@@ -77,7 +77,7 @@ export interface OptimizationResult {
   detailed_issue?: string;
   recommendations: ParameterRecommendation[];
   detailed_recommendations?: string;
-  risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk_level: 'LOW' | 'MEDIUM' | 'HIGH' | 'NONE';
   risk_score: number;
   detailed_risk?: string;
   expected_impact: string;

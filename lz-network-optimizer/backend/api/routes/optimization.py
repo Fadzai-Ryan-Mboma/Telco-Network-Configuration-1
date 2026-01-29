@@ -92,8 +92,8 @@ async def run_optimization_api(request: OptimizationRequest):
         detailed_issue=result.get("detailed_issue"),
         recommendations=recommendations,
         detailed_recommendations=result.get("detailed_recommendations"),
-        risk_level=result.get("risk_level", "LOW"),
-        risk_score=result.get("risk_score", 0.0),
+        risk_level=result.get("risk_level", "MEDIUM"),
+        risk_score=result.get("risk_score", 5.0),  # Default to medium risk (5.0), not 0.0
         detailed_risk=result.get("detailed_risk"),
         expected_impact=result.get("expected_impact", ""),
         detailed_impact=result.get("detailed_impact"),

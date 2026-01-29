@@ -1,0 +1,42 @@
+{
+  "rollback_id": "MSH-0014-Chipadze_reference_signal_power_pdschcfg_20260129_070422",
+  "timestamp": "2026-01-29T07:04:24.117050",
+  "parameter_name": "reference_signal_power_pdschcfg",
+  "site_name": "MSH-0014-Chipadze",
+  "cell_states": [
+    {
+      "cell_id": 1,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129090423_15929', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-29 09:04:22\\r\\nO&M    #806355408\\r\\n%%/*1880280978*/LST PDSCHCFG:LOCALCELLID=1;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  1\\r\\n      Reference signal power(0.1dBm)  =  49\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 2,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129090423_15930', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-29 09:04:23\\r\\nO&M    #806355409\\r\\n%%/*1880280980*/LST PDSCHCFG:LOCALCELLID=2;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  2\\r\\n      Reference signal power(0.1dBm)  =  49\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 3,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129090423_15931', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-29 09:04:23\\r\\nO&M    #806355410\\r\\n%%/*1880280982*/LST PDSCHCFG:LOCALCELLID=3;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  3\\r\\n      Reference signal power(0.1dBm)  =  49\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 4,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129090424_15932', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-29 09:04:23\\r\\nO&M    #806355411\\r\\n%%/*1880280984*/LST PDSCHCFG:LOCALCELLID=4;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  4\\r\\n      Reference signal power(0.1dBm)  =  57\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 5,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129090424_15933', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-29 09:04:23\\r\\nO&M    #806355412\\r\\n%%/*1880280986*/LST PDSCHCFG:LOCALCELLID=5;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  5\\r\\n      Reference signal power(0.1dBm)  =  57\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    },
+    {
+      "cell_id": 6,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129090424_15934', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-01-29 09:04:23\\r\\nO&M    #806355413\\r\\n%%/*1880280988*/LST PDSCHCFG:LOCALCELLID=6;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  6\\r\\n      Reference signal power(0.1dBm)  =  57\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB)  =  1\\r"
+    }
+  ],
+  "rollback_commands": [],
+  "status": "completed",
+  "rollback_results": [],
+  "rollback_timestamp": "2026-01-29T07:04:37.844892"
+}

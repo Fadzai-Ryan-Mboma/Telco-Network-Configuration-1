@@ -1,12 +1,14 @@
 interface RiskGaugeProps {
   score: number;
-  level: 'LOW' | 'MEDIUM' | 'HIGH';
+  level: 'LOW' | 'MEDIUM' | 'HIGH' | 'NONE';
+  details?: string;
 }
 
-export default function RiskGauge({ score, level }: RiskGaugeProps) {
+export default function RiskGauge({ score, level, details }: RiskGaugeProps) {
   const getColor = () => {
     switch (level) {
       case 'LOW':
+      case 'NONE':
         return {
           bg: 'bg-status-success',
           text: 'text-status-success',
@@ -23,6 +25,12 @@ export default function RiskGauge({ score, level }: RiskGaugeProps) {
           bg: 'bg-status-error',
           text: 'text-status-error',
           glow: 'shadow-status-error/50',
+        };
+      default:
+        return {
+          bg: 'bg-status-warning',
+          text: 'text-status-warning',
+          glow: 'shadow-status-warning/50',
         };
     }
   };
@@ -62,6 +70,18 @@ export default function RiskGauge({ score, level }: RiskGaugeProps) {
             style={{ width: `${percentage}%` }}
           />
         </div>
+
+        {/* Risk Details */}
+        {details && (
+          <div className="mt-4 w-full text-left">
+            <div className="text-xs text-gray-500 mb-1">Risk Factors:</div>
+            <div className="text-sm text-gray-400 space-y-1">
+              {details.split('\n').slice(0, 5).map((line, i) => (
+                <p key={i} className="truncate">{line}</p>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

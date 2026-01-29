@@ -63,9 +63,9 @@ export default function Dashboard() {
 
   const { data: parameters, isLoading: paramsLoading } = useQuery({
     queryKey: ['parameters', selectedSite],
-    queryFn: () => getSiteParameters(selectedSite!, false), // Use database when API unavailable
+    queryFn: () => getSiteParameters(selectedSite!, true), // Use live API for production demo
     enabled: !!selectedSite,
-    refetchInterval: 300000, // Refresh every 5 minutes
+    refetchInterval: 60000, // Refresh every 1 minute for live data
   });
 
   const { data: systemStatus } = useQuery({
@@ -149,6 +149,17 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ['parameters'] });
       queryClient.invalidateQueries({ queryKey: ['activity'] });
     },
+    onError: (error: Error) => {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          content: `Execution failed: ${error.message}`,
+          isBot: true,
+          timestamp: new Date(),
+        },
+      ]);
+    },
   });
 
   // Handlers
@@ -169,8 +180,48 @@ export default function Dashboard() {
   }, [selectedSite, optimizeMutation]);
 
   const handleApprove = useCallback(() => {
+    // Validate before executing
+    if (!selectedSite) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          content: 'No site selected. Please select a site first.',
+          isBot: true,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
+    if (!optimizationResult) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          content: 'No optimization results to execute. Please run analysis first.',
+          isBot: true,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
+    if (!optimizationResult.mml_commands || optimizationResult.mml_commands.length === 0) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          content: 'No MML commands available to execute. The analysis may not have generated executable commands.',
+          isBot: true,
+          timestamp: new Date(),
+        },
+      ]);
+      return;
+    }
+
     executeMutation.mutate();
-  }, [executeMutation]);
+  }, [executeMutation, selectedSite, optimizationResult, setMessages]);
 
   const handleReject = useCallback(() => {
     setOptimizationResult(null);
