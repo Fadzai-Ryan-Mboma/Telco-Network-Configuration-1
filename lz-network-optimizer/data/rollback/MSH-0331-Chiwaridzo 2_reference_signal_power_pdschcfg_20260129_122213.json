@@ -1,0 +1,40 @@
+{
+  "rollback_id": "MSH-0331-Chiwaridzo 2_reference_signal_power_pdschcfg_20260129_122213",
+  "timestamp": "2026-01-29T12:22:14.945110",
+  "parameter_name": "reference_signal_power_pdschcfg",
+  "site_name": "MSH-0331-Chiwaridzo 2",
+  "cell_states": [
+    {
+      "cell_id": 1,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129142214_17366', 'results': [{'name': 'MSH-0331-Chiwaridzo 2', 'report': '+++    MSH-0331-Chiwaridzo 2        2026-01-29 14:22:12\\r\\nO&M    #808454711\\r\\n%%/*1880286295*/LST PDSCHCFG:LOCALCELLID=1;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  1\\r\\n      Reference signal power(0.1dBm)  =  152\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 2,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129142214_17367', 'results': [{'name': 'MSH-0331-Chiwaridzo 2', 'report': '+++    MSH-0331-Chiwaridzo 2        2026-01-29 14:22:12\\r\\nO&M    #808454712\\r\\n%%/*1880286297*/LST PDSCHCFG:LOCALCELLID=2;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  2\\r\\n      Reference signal power(0.1dBm)  =  152\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 3,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129142214_17368', 'results': [{'name': 'MSH-0331-Chiwaridzo 2', 'report': '+++    MSH-0331-Chiwaridzo 2        2026-01-29 14:22:13\\r\\nO&M    #808454713\\r\\n%%/*1880286299*/LST PDSCHCFG:LOCALCELLID=3;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  3\\r\\n      Reference signal power(0.1dBm)  =  152\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 4,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129142214_17369', 'results': [{'name': 'MSH-0331-Chiwaridzo 2', 'report': '+++    MSH-0331-Chiwaridzo 2        2026-01-29 14:22:13\\r\\nO&M    #808454714\\r\\n%%/*1880286301*/LST PDSCHCFG:LOCALCELLID=4;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  4\\r\\n      Reference signal power(0.1dBm)  =  164\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 5,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129142214_17370', 'results': [{'name': 'MSH-0331-Chiwaridzo 2', 'report': '+++    MSH-0331-Chiwaridzo 2        2026-01-29 14:22:13\\r\\nO&M    #808454715\\r\\n%%/*1880286303*/LST PDSCHCFG:LOCALCELLID=5;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  5\\r\\n      Reference signal power(0.1dBm)  =  164\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    },
+    {
+      "cell_id": 6,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260129142215_17371', 'results': [{'name': 'MSH-0331-Chiwaridzo 2', 'report': '+++    MSH-0331-Chiwaridzo 2        2026-01-29 14:22:13\\r\\nO&M    #808454716\\r\\n%%/*1880286305*/LST PDSCHCFG:LOCALCELLID=6;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList PDSCH Configuration\\r\\n------------------------\\r\\n                       Local cell ID  =  6\\r\\n      Reference signal power(0.1dBm)  =  164\\r\\n                                  PB  =  1\\r\\nReference Signal Power Margin(0.1dB"
+    }
+  ],
+  "rollback_commands": [],
+  "status": "captured"
+}
