@@ -1,0 +1,15 @@
+{
+  "rollback_id": "MSH-0014-Chipadze_pdcch_aggregation_level_20260609_133427",
+  "timestamp": "2026-06-09T13:34:28.428302",
+  "parameter_name": "pdcch_aggregation_level",
+  "site_name": "MSH-0014-Chipadze",
+  "cell_states": [
+    {
+      "cell_id": 1,
+      "current_value": null,
+      "query_response": "{'asynchId': '0301_20260609133428_56358', 'results': [{'name': 'MSH-0014-Chipadze', 'report': '+++    MSH-0014-Chipadze        2026-06-09 13:34:28\\r\\nO&M    #806357110\\r\\n%%/*1879468377*/LST CELLPDCCHALGO:LOCALCELLID=1;%%\\r\\nRETCODE = 0  Operation succeeded.\\r\\n\\r\\nList Cell PDCCH Algorithm Configuration\\r\\n---------------------------------------\\r\\n                                             Local cell ID  =  1\\r\\n                             PDCCH Power Boost Upper Limit  =  NULL\\r\\n         "
+    }
+  ],
+  "rollback_commands": [],
+  "status": "captured"
+}

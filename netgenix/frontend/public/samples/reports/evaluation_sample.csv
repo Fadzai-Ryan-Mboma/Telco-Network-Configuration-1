@@ -1,0 +1,5 @@
+Date,eNodeB Name,Total Traffic (Gbit),DL PRB Usage Rate(%),Call Drop Rate (All),Radio Net Availability Rate(%),User DL PDCP Average Throughput,active_subscribers,addressable_subscribers
+2026-04-23,MSH-0014-Chipadze,1420,61.2,1.2,99.91,18.4,1240,5200
+2026-04-24,MSH-0112-Bindura Hospital,980,48.4,0.8,99.96,16.7,820,3400
+2026-04-25,MSH-0331-Chiwaridzo 2,640,42.1,0.5,99.98,14.2,510,2600
+2026-04-26,MSH0013-Bindura-Zaoga,1760,72.4,2.2,99.82,19.1,1560,4600

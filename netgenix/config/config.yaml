@@ -1,0 +1,281 @@
+# Liquid Zimbabwe 4G Network Optimizer - Main Configuration
+# Created: 2025-10-30
+# Purpose: Central configuration for agents, database, API, and logging
+
+# ============================================================================
+# LLM Provider Configuration
+# ============================================================================
+llm:
+  # Active provider: nvidia | gemini | mistral
+  provider: "gemini"
+
+  nvidia:
+    api_key: ${NVIDIA_API_KEY}
+    model: "nvidia/nemotron-3-super-120b-a12b"
+    base_url: "https://integrate.api.nvidia.com/v1"
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 120
+
+  gemini:
+    api_key: ${GEMINI_API_KEY}
+    model: "gemini-3.1-pro-preview"
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 120
+
+  mistral:
+    api_key: ${MISTRAL_API_KEY}
+    model: "magistral-medium-latest"
+    temperature: 0.7
+    max_tokens: 4096
+    timeout: 120
+
+# ============================================================================
+# Huawei iMaster MAE API Configuration
+# ============================================================================
+huawei:
+  base_url: ${HUAWEI_API_URL}  # e.g., https://41.174.191.214:31127
+  username: ${HUAWEI_USERNAME}
+  password: ${HUAWEI_PASSWORD}
+  ssl_verify: false  # Required for self-signed certificate
+  timeout: 30
+  retry_attempts: 3
+  retry_delay: 5
+  rate_limit_ms: 100  # Minimum milliseconds between requests
+
+  # API Endpoints
+  endpoints:
+    oauth_token: "/api/rest/securityManagement/v1/oauth/token"
+    mml_command: "/api/rest/mmlManagement/v1/command"
+    query_cell: "/api/rest/cellManagement/v1/cells"
+    query_enodeb: "/api/rest/enbManagement/v1/enodebs"
+
+# ============================================================================
+# Database Configuration
+# ============================================================================
+database:
+  path: "data/lz_network.db"
+  backup_enabled: true
+  backup_interval_hours: 24
+  max_backups: 7
+
+# ============================================================================
+# Agent Configuration
+# ============================================================================
+agents:
+  # 1. Network Connector Agent
+  network_connector:
+    enabled: true
+    timeout: 60
+    health_check_interval: 300  # seconds
+    fallback_mode: "historical"  # Use historical data if API fails
+
+  # 2. Monitoring Agent
+  monitoring:
+    enabled: true
+    check_interval: 300  # Poll every 5 minutes
+    kpi_threshold_check: true
+    alert_on_degradation: true
+
+  # 3. KPI Analytics Agent
+  kpi_analytics:
+    enabled: true
+    weighted_scoring: true
+    weights_config: "config/kpi_weights.yaml"
+    trend_analysis_days: 7
+    baseline_calculation_days: 30
+
+  # 4. Configuration Agent
+  configuration:
+    enabled: true
+    few_shot_examples: 5
+    domain_knowledge_injection: true
+    safety_validation: true
+    require_approval: true  # PRODUCTION: Manual approval required for all optimizations
+
+  # 5. Validation Agent
+  validation:
+    enabled: true
+    risk_scoring: true
+    parameter_range_check: true
+    kpi_impact_prediction: true
+    rollback_on_failure: true
+    max_risk_score: 7  # Scale 1-10, reject if > 7
+
+  # 6. MML Executor Agent
+  mml_executor:
+    enabled: true
+    dry_run: true  # NetGenix defaults to safe simulation until explicitly unlocked
+    require_approval: true  # CRITICAL: Require engineer approval before executing parameter changes
+    command_logging: true
+    rollback_support: true
+    execution_timeout: 60
+    auto_rollback: true  # PRODUCTION: Enable automatic rollback on KPI degradation
+    rollback_threshold: -3.0  # Rollback if weighted KPI score drops >3%
+    monitoring_duration: 15  # Minutes to monitor post-optimization before rollback decision
+
+# ============================================================================
+# Optimization Rules Configuration
+# ============================================================================
+optimization:
+  # Trigger thresholds (when to optimize)
+  thresholds:
+    network_access_success_min: 95.0  # %
+    download_speed_min: 50.0  # Mbps
+    upload_speed_min: 20.0  # Mbps
+    download_quality_min: 95.0  # % (100 - IBLER)
+    upload_quality_min: 95.0  # %
+    control_channel_load_max: 80.0  # %
+    feedback_channel_load_max: 80.0  # %
+
+  # Weighted KPI thresholds
+  weighted_kpi_score_min: 80.0  # Trigger optimization if score < 80
+
+  # Parameter change limits (prevent aggressive changes)
+  parameter_limits:
+    reference_signal_power_max_change: 100  # 0.1 dBm units (= 10 dBm)
+    a3_event_offset_max_change: 2  # dB
+    t310_timer_max_change: 2000  # ms
+    p0_nominal_pusch_max_change: 10  # dBm
+    pdcch_aggregation_level_max_change: 1  # levels
+
+  # Optimization frequency limits
+  min_time_between_optimizations_hours: 4
+  max_optimizations_per_day: 3
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  date_format: "%Y-%m-%d %H:%M:%S"
+
+  # File logging
+  file_logging:
+    enabled: true
+    directory: "logs"
+    max_size_mb: 10
+    backup_count: 5
+
+  # Console logging
+  console_logging:
+    enabled: true
+    colorize: false
+
+  # Agent-specific logging
+  agent_logs:
+    enabled: true
+    log_state_transitions: true
+    log_tool_calls: true
+    log_llm_prompts: true  # Shows full prompts sent to NVIDIA AI
+    log_llm_responses: true  # Shows full responses from NVIDIA AI
+
+# ============================================================================
+# UI Configuration
+# ============================================================================
+ui:
+  title: "Liquid Zimbabwe 4G Network Optimizer"
+  theme: "cassava"  # Uses Cassava branding colors
+  port: 8501
+  refresh_interval: 30  # seconds
+
+  # Chart settings
+  charts:
+    default_days: 7
+    max_days: 30
+    show_thresholds: true
+    color_scheme: "cassava"
+
+  # Map settings (for future implementation)
+  map:
+    enabled: false
+    default_center: [-18.9958, 29.8753]  # Zimbabwe coordinates
+    default_zoom: 7
+
+# ============================================================================
+# Data Management
+# ============================================================================
+data:
+  # Historical data retention
+  retention:
+    kpi_data_days: 90
+    parameter_changes_days: 365
+    optimization_history_days: 365
+
+  # Data cleanup schedule
+  cleanup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM (cron format)
+
+# ============================================================================
+# System Settings
+# ============================================================================
+system:
+  debug_mode: false
+  test_mode: false  # Use test data instead of live API
+  offline_mode: false  # Work entirely offline with historical data
+
+  # Performance settings
+  max_concurrent_agents: 3
+  agent_timeout: 300  # seconds
+  tool_timeout: 60  # seconds
+
+  # Safety settings
+  require_user_approval: false  # Require approval for parameter changes
+  auto_rollback: true  # Auto-rollback on failures
+  rollback_timeout: 300  # seconds
+
+# ============================================================================
+# Demo Mode Configuration - PRODUCTION MODE
+# ============================================================================
+demo:
+  # Master demo mode toggle - PRODUCTION MODE
+  # false = No dummy fallbacks, LLM required for all agents
+  enabled: false  # PRODUCTION MODE - ALL DUMMY FALLBACKS DISABLED
+
+  # Fallback behavior configuration
+  fallback:
+    # Timeout settings for LLM calls (prevent 5-minute hangs)
+    llm_timeout_seconds:
+      monitoring: 60
+      kpi_analytics: 45
+      configuration: 45
+      validation: 30
+      mml_executor: 60
+
+    # PRODUCTION: All dummy fallbacks DISABLED
+    # System will FAIL EXPLICITLY if LLM fails (no silent dummy fallbacks)
+    use_fallbacks:
+      monitoring: false      # DISABLED: No dummy fallback
+      kpi_analytics: false   # DISABLED: No dummy fallback
+      configuration: false   # DISABLED: No dummy fallback
+      validation: true       # ENABLED: Real risk-based validation (NOT dummy)
+
+    # Dummy data preferences - NOT USED IN PRODUCTION
+    dummy_data:
+      use_realistic_values: false   # NOT USED - dummy fallbacks disabled
+      default_scenario: "none"      # NOT USED - dummy fallbacks disabled
+      always_approve_validation: false  # NOT USED - real validation only
+
+    # Success rate targets - PRODUCTION EXPECTATIONS
+    target_completion_rate: 95  # Lower - workflow fails if LLM fails
+    target_response_time_seconds: 90  # Longer - wait for LLM
+
+  # Progress tracking for demo
+  progress_indicators:
+    show_agent_status: true       # Show which agent is currently running
+    show_fallback_usage: true     # Indicate when fallback was used
+    show_completion_percentage: true  # Show workflow progress (0-100%)
+
+  # Demo data preloading (optional - for faster demos)
+  preload:
+    enabled: false
+    sites: ["MSH-0014-Chipadze", "MSH-0015-Mutoko", "MSH-0016-Guruve"]
+
+  # Demo metrics tracking
+  metrics:
+    track_fallback_usage: true    # Log how often each fallback tier is used
+    track_completion_rate: true   # Log success vs. failure rate
+    track_response_times: true    # Log timing for each agent

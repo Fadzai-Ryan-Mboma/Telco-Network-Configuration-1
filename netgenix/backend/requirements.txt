@@ -1,0 +1,22 @@
+# FastAPI Backend Requirements
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+python-dotenv>=1.0.0
+python-multipart>=0.0.6
+
+# Inherited from main project
+requests>=2.31.0
+urllib3>=2.0.0
+PyYAML>=6.0
+openpyxl>=3.1.0
+
+# Optional AI optimizer workflow. NetGenix keeps a deterministic optimizer
+# fallback, but these enable the full multi-agent LLM path.
+langchain==0.3.25
+langchain-core==0.3.79
+langchain-community==0.3.23
+langgraph==0.6.8
+langgraph-checkpoint==2.1.1
+langgraph-prebuilt==0.6.4
+langchain-nvidia-ai-endpoints==0.3.10

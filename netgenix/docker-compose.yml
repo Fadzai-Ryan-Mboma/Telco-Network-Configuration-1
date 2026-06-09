@@ -1,0 +1,91 @@
+services:
+
+  # ── 1. TimescaleDB ─────────────────────────────────────────────────────────
+  netgenix-db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: netgenix-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: netgenix
+      POSTGRES_USER: netgenix
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-netgenix_secure_2026}
+    volumes:
+      - netgenix_db_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U netgenix -d netgenix"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── 2. Backend ─────────────────────────────────────────────────────────────
+  netgenix-backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: netgenix-backend
+    restart: unless-stopped
+    depends_on:
+      netgenix-db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://netgenix:${DB_PASSWORD:-netgenix_secure_2026}@netgenix-db:5432/netgenix
+      DB_HOST: netgenix-db
+      DB_PORT: 5432
+      DB_NAME: netgenix
+      DB_USER: netgenix
+      DB_PASSWORD: ${DB_PASSWORD:-netgenix_secure_2026}
+    ports:
+      - "8510:8510"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8510/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── 3. Frontend ────────────────────────────────────────────────────────────
+  netgenix-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: netgenix-frontend
+    restart: unless-stopped
+    depends_on:
+      - netgenix-backend
+    environment:
+      VITE_API_URL: http://netgenix-backend:8510
+    ports:
+      - "5180:80"
+
+  # ── 4. Collector ───────────────────────────────────────────────────────────
+  netgenix-collector:
+    build:
+      context: .
+      dockerfile: collector/Dockerfile
+    container_name: netgenix-collector
+    restart: unless-stopped
+    depends_on:
+      netgenix-db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://netgenix:${DB_PASSWORD:-netgenix_secure_2026}@netgenix-db:5432/netgenix
+      DB_HOST: netgenix-db
+      DB_PORT: 5432
+      DB_NAME: netgenix
+      DB_USER: netgenix
+      DB_PASSWORD: ${DB_PASSWORD:-netgenix_secure_2026}
+    volumes:
+      - ./data/downloads:/app/downloads
+      - ./logs:/app/logs
+      - /tmp/.X11-unix:/tmp/.X11-unix
+
+volumes:
+  netgenix_db_data:
+    driver: local
