@@ -52,7 +52,7 @@ def get_llm_client(
     nvidia_config = llm_config.get('nvidia', {})
     
     # Use overrides or fall back to config
-    model = model or nvidia_config.get('model', 'meta/llama-3.1-70b-instruct')
+    model = model or nvidia_config.get('model', 'nvidia/nemotron-3-super-120b-a12b')
     temperature = temperature if temperature is not None else nvidia_config.get('temperature', 0.7)
     max_tokens = max_tokens or nvidia_config.get('max_tokens', 4096)
     timeout = timeout or nvidia_config.get('timeout', 120)

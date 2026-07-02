@@ -4,7 +4,7 @@ Pydantic models for API request/response schemas
 
 from typing import List, Optional, Dict, Any, Literal
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import date, datetime
 
 
 # ============================================================================
@@ -41,6 +41,10 @@ class ParameterValue(BaseModel):
     value: Optional[Any] = None
     unit: str = ""
     source: str = "database"  # "live_api" or "database"
+    label: Optional[str] = None
+    category: Optional[str] = None
+    priority: Optional[int] = None
+    description: Optional[str] = None
 
 
 class SiteParameters(BaseModel):
@@ -73,6 +77,14 @@ class ParameterRecommendation(BaseModel):
     description: str = ""
 
 
+class KPIComparison(BaseModel):
+    """Current value vs. this network's calibrated operating-average baseline for one KPI."""
+    kpi: str
+    current_value: Any = None
+    baseline: Any = None
+    status: str = ""  # "above_baseline", "at_baseline", "below_baseline"
+
+
 class OptimizationResult(BaseModel):
     """Optimization result."""
     status: str  # "success", "rejected", "error"
@@ -87,6 +99,8 @@ class OptimizationResult(BaseModel):
     detailed_impact: Optional[str] = None
     mml_commands: List[str] = []
     kpi_issue: Optional[str] = None
+    kpi_comparison: List[KPIComparison] = []
+    clarifying_question: Optional[str] = None
     message: Optional[str] = None
     error_message: Optional[str] = None
 
@@ -336,6 +350,56 @@ class ReportRunResponse(BaseModel):
     top_traffic_sites: List[ReportSiteMetric]
     bottom_traffic_sites: List[ReportSiteMetric]
     audit_file: str
+
+
+class ReportAutomationRequest(BaseModel):
+    """One-click Evaluation report request."""
+    period_start: date
+    period_end: date
+    refresh: bool = True
+    exclusion_overrides: List[str] = Field(default_factory=list)
+
+
+class ReportAutomationJob(BaseModel):
+    """Persistent status for an asynchronous report job."""
+    job_id: str
+    status: Literal["queued", "running", "completed", "failed"]
+    refresh_requested: bool
+    period_start: str
+    period_end: str
+    exclusions: List[str] = Field(default_factory=list)
+    stage: str
+    error_message: Optional[str] = None
+    report_run_id: Optional[str] = None
+    source_freshness: Optional[str] = None
+    rows_ingested: int = 0
+    created_at: Optional[str] = None
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    download_url: Optional[str] = None
+    pdf_download_url: Optional[str] = None
+
+
+class ReportExclusions(BaseModel):
+    sites: List[str] = Field(default_factory=list)
+
+
+class EvaluationStatus(BaseModel):
+    connected: bool
+    reason: Optional[str] = None
+    updated_at: Optional[str] = None
+    last_successful_extraction: Optional[str] = None
+    last_period_start: Optional[str] = None
+    last_period_end: Optional[str] = None
+    last_rows_ingested: int = 0
+
+
+class ReconnectSessionStatus(BaseModel):
+    session_id: str
+    status: str  # starting|awaiting_login|session_saved|failed|timeout|cancelled
+    error_message: Optional[str] = None
+    started_at: Optional[float] = None
+    novnc_url: Optional[str] = None
 
 
 # ============================================================================

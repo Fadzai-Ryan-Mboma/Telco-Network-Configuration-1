@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, LiveBanner } from '../components/Header';
 import { ParameterGrid, StatusIndicators } from '../components/ParameterCards';
@@ -48,12 +48,23 @@ export default function Dashboard() {
   const { data: sites = [] } = useQuery({
     queryKey: ['sites'],
     queryFn: getSites,
+    retry: 3,
+    refetchInterval: 15000,
   });
 
-  // Auto-select first site
-  if (sites.length > 0 && !selectedSite) {
-    setSelectedSite(sites[0].site_name);
-  }
+  useEffect(() => {
+    if (sites.length === 0) {
+      return;
+    }
+
+    const siteStillExists = selectedSite
+      ? sites.some((site) => site.site_name === selectedSite)
+      : false;
+
+    if (!siteStillExists) {
+      setSelectedSite(sites[0].site_name);
+    }
+  }, [sites, selectedSite]);
 
   const { data: siteInfo } = useQuery({
     queryKey: ['siteInfo', selectedSite],
@@ -69,9 +80,9 @@ export default function Dashboard() {
   });
 
   const { data: systemStatus } = useQuery({
-    queryKey: ['status', selectedSite],
-    queryFn: () => getSystemStatus(),
-    enabled: !!selectedSite,
+    queryKey: ['status'],
+    queryFn: getSystemStatus,
+    refetchInterval: 15000,
   });
 
   const { data: kpiValues } = useQuery({

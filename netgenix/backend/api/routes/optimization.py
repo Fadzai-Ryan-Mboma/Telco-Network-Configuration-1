@@ -98,7 +98,9 @@ async def run_optimization_api(request: OptimizationRequest):
         expected_impact=result.get("expected_impact", ""),
         detailed_impact=result.get("detailed_impact"),
         mml_commands=result.get("mml_commands", []),
-        kpi_issue=result.get("kpi_issue")
+        kpi_issue=result.get("kpi_issue"),
+        kpi_comparison=result.get("kpi_comparison", []),
+        clarifying_question=result.get("clarifying_question"),
     )
 
 

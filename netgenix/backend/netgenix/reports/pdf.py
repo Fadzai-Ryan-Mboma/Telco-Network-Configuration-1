@@ -240,8 +240,7 @@ def write_pdf_report(
     canvas.paragraph(f"Generated at: {generated_at}", size=9)
     canvas.paragraph(f"Source files: {original_filename}", size=9)
     canvas.paragraph(
-        "Subscriber penetration and per-active-user usage remain zero when subscriber/EPC extracts are not included. "
-        "Those fields will populate automatically once the matching raw files are uploaded.",
+        "Subscriber, penetration, and EPC-only measures are marked N/A when the report uses Evaluation data only.",
         size=9,
     )
 

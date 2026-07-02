@@ -131,17 +131,28 @@ def get_cell_kpi_history(
         raise ValueError(f"Unknown KPI column: {kpi_name!r}")
 
     gran_filter = "AND granularity = %s" if granularity else ""
-    params: list[Any] = [enodeb_name, days]
+    params: list[Any] = [enodeb_name, enodeb_name, days]
     if granularity:
         params.append(granularity)
 
+    value_expr = (
+        "AVG(NULLIF(REPLACE(integrity, '%%', ''), '')::REAL)"
+        if kpi_name == "integrity"
+        else f"AVG({kpi_name})"
+    )
+
     sql = f"""
+        WITH latest AS (
+            SELECT MAX(time) AS max_time
+            FROM kpi_cell
+            WHERE enodeb_name = %s
+        )
         SELECT
             time_bucket('1 day', time) AS bucket,
-            AVG({kpi_name})            AS value
-        FROM kpi_cell
+            {value_expr}               AS value
+        FROM kpi_cell, latest
         WHERE enodeb_name = %s
-          AND time >= NOW() - (%s || ' days')::INTERVAL
+          AND time >= latest.max_time - ((%s - 1) || ' days')::INTERVAL
           {gran_filter}
         GROUP BY bucket
         ORDER BY bucket ASC
@@ -157,16 +168,26 @@ def get_enodeb_summary(enodeb_name: str, days: int = 7) -> Optional[dict]:
     Average all 30 KPIs across all cells and the requested window.
     Returns a single dict or None if no data.
     """
-    avgs = ", ".join(f"AVG({c}) AS {c}" for c in KPI_COLUMNS if c != "integrity")
+    avgs = ", ".join(
+        "AVG(NULLIF(REPLACE(integrity, '%%', ''), '')::REAL) AS integrity"
+        if c == "integrity"
+        else f"AVG({c}) AS {c}"
+        for c in KPI_COLUMNS
+    )
     sql = f"""
+        WITH latest AS (
+            SELECT MAX(time) AS max_time
+            FROM kpi_cell
+            WHERE enodeb_name = %s
+        )
         SELECT {avgs}
-        FROM kpi_cell
+        FROM kpi_cell, latest
         WHERE enodeb_name = %s
-          AND time >= NOW() - (%s || ' days')::INTERVAL
+          AND time >= latest.max_time - ((%s - 1) || ' days')::INTERVAL
     """
     with _conn() as conn:
         cur = conn.cursor()
-        cur.execute(sql, (enodeb_name, days))
+        cur.execute(sql, (enodeb_name, enodeb_name, days))
         row = cur.fetchone()
         return dict(row) if row else None
 
@@ -188,6 +209,30 @@ def list_cells(enodeb_name: str) -> list[str]:
             (enodeb_name,),
         )
         return [r["cell_name"] for r in cur.fetchall()]
+
+
+def get_topology_site_summaries(days: int = 7) -> list[dict]:
+    """Return one current KPI summary per eNodeB for the topology view."""
+    sql = """
+        WITH latest AS (SELECT MAX(time) AS max_time FROM kpi_cell)
+        SELECT
+            enodeb_name AS site_name,
+            COUNT(DISTINCT cell_name) AS cell_count,
+            AVG(rrc_setup_success_rate_all) AS avg_rrc_success,
+            AVG(radio_net_availability_rate) AS avg_availability,
+            AVG(call_drop_rate) AS avg_call_drop,
+            AVG(dl_prb_usage_rate) AS avg_dl_prb_usage,
+            SUM(total_traffic_gbit) AS total_traffic_gb,
+            MAX(time) AS last_date
+        FROM kpi_cell, latest
+        WHERE time >= latest.max_time - ((%s - 1) || ' days')::INTERVAL
+        GROUP BY enodeb_name
+        ORDER BY enodeb_name
+    """
+    with _conn() as conn:
+        cur = conn.cursor()
+        cur.execute(sql, (days,))
+        return [dict(row) for row in cur.fetchall()]
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -246,9 +291,10 @@ def get_network_kpi_history(kpi_name: str, days: int = 30) -> list[dict]:
     if kpi_name not in NETWORK_KPI_COLUMNS:
         raise ValueError(f"Unknown network KPI column: {kpi_name!r}")
     sql = f"""
+        WITH latest AS (SELECT MAX(time) AS max_time FROM kpi_network)
         SELECT time::date AS date, {kpi_name} AS value
-        FROM kpi_network
-        WHERE time >= NOW() - (%s || ' days')::INTERVAL
+        FROM kpi_network, latest
+        WHERE time >= latest.max_time - ((%s - 1) || ' days')::INTERVAL
         ORDER BY time ASC
     """
     with _conn() as conn:

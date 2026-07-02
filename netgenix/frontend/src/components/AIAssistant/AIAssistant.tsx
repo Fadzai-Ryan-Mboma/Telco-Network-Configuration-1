@@ -76,7 +76,7 @@ export default function AIAssistant({ onSubmit, isLoading, messages }: AIAssista
                   : 'bg-accent-green/20 text-white'
               }`}
             >
-              <p className="text-sm">{message.content}</p>
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
               <span className="text-xs text-gray-500 mt-1 block">
                 {message.timestamp.toLocaleTimeString()}
               </span>

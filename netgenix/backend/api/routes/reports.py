@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
-from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse
 
 from backend.models.schemas import (
@@ -13,6 +13,9 @@ from backend.models.schemas import (
     ReportFormulaPreviewResponse,
     ReportRunSummary,
     ReportRunResponse,
+    ReportAutomationJob,
+    ReportAutomationRequest,
+    ReportExclusions,
 )
 from backend.netgenix.reports.engine import (
     average_gb_per_active_user,
@@ -29,8 +32,56 @@ from backend.netgenix.reports.engine import (
     weekly_traffic_total_gb,
     weekly_traffic_total_tb,
 )
+from backend.netgenix.services.report_automation import (
+    create_job,
+    get_exclusions,
+    get_job,
+    list_jobs,
+    replace_exclusions,
+)
 
 router = APIRouter()
+
+
+@router.post(
+    "/automation/runs",
+    response_model=ReportAutomationJob,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def start_automation_run(request: ReportAutomationRequest):
+    """Start a fresh Evaluation pull or generate from existing database data."""
+    try:
+        return create_job(
+            request.period_start,
+            request.period_end,
+            refresh=request.refresh,
+            exclusion_overrides=request.exclusion_overrides,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/automation/runs/{job_id}", response_model=ReportAutomationJob)
+async def get_automation_run(job_id: str):
+    job = get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Automation job '{job_id}' not found")
+    return job
+
+
+@router.get("/automation/runs", response_model=list[ReportAutomationJob])
+async def list_automation_runs(limit: int = Query(10, ge=1, le=50)):
+    return list_jobs(limit)
+
+
+@router.get("/exclusions", response_model=ReportExclusions)
+async def read_report_exclusions():
+    return {"sites": get_exclusions()}
+
+
+@router.put("/exclusions", response_model=ReportExclusions)
+async def write_report_exclusions(request: ReportExclusions):
+    return {"sites": replace_exclusions(request.sites)}
 
 
 @router.post("/formulas/preview", response_model=ReportFormulaPreviewResponse)

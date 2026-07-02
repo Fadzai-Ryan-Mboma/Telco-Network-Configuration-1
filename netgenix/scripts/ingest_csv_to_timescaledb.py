@@ -17,6 +17,7 @@ Env vars (or .env):
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import sys
@@ -112,11 +113,26 @@ INSERT INTO kpi_cell (
     data_access_time_ms, total_cell_unavail_duration_s,
     granularity, data_source
 ) VALUES %s
-ON CONFLICT (time, cell_name, granularity) DO NOTHING
+ON CONFLICT (time, cell_name, granularity) DO UPDATE SET
+    enodeb_name = EXCLUDED.enodeb_name,
+    local_cell_id = EXCLUDED.local_cell_id,
+    integrity = EXCLUDED.integrity,
+    radio_net_availability_rate = EXCLUDED.radio_net_availability_rate,
+    rrc_setup_success_rate_all = EXCLUDED.rrc_setup_success_rate_all,
+    erab_setup_success_rate = EXCLUDED.erab_setup_success_rate,
+    call_drop_rate = EXCLUDED.call_drop_rate,
+    total_traffic_gbit = EXCLUDED.total_traffic_gbit,
+    dl_traffic_volume_gbit = EXCLUDED.dl_traffic_volume_gbit,
+    ul_traffic_volume_gbit = EXCLUDED.ul_traffic_volume_gbit,
+    user_dl_pdcp_avg_throughput = EXCLUDED.user_dl_pdcp_avg_throughput,
+    user_ul_pdcp_avg_throughput = EXCLUDED.user_ul_pdcp_avg_throughput,
+    dl_prb_usage_rate = EXCLUDED.dl_prb_usage_rate,
+    ul_prb_usage_rate = EXCLUDED.ul_prb_usage_rate,
+    data_source = EXCLUDED.data_source
 """
 
 
-def _cell_rows(df: pd.DataFrame) -> list[tuple]:
+def _cell_rows(df: pd.DataFrame, source: str = "csv_initial_load") -> list[tuple]:
     rows = []
     for _, r in df.iterrows():
         try:
@@ -162,7 +178,7 @@ def _cell_rows(df: pd.DataFrame) -> list[tuple]:
             _to_float(r["Data Access Time (ms)"]),
             _to_float(r["Total Cell Unavail Duration(s)"]),
             "daily",
-            "csv_initial_load",
+            source,
         ))
     return rows
 
@@ -186,11 +202,25 @@ INSERT INTO kpi_network (
     average_cqi, average_pdsch_mcs,
     granularity, data_source
 ) VALUES %s
-ON CONFLICT (time, granularity) DO NOTHING
+ON CONFLICT (time, granularity) DO UPDATE SET
+    network_label = EXCLUDED.network_label,
+    integrity = EXCLUDED.integrity,
+    radio_net_availability_rate = EXCLUDED.radio_net_availability_rate,
+    rrc_setup_success_rate_all = EXCLUDED.rrc_setup_success_rate_all,
+    erab_setup_success_rate = EXCLUDED.erab_setup_success_rate,
+    call_drop_rate = EXCLUDED.call_drop_rate,
+    total_traffic_gbit = EXCLUDED.total_traffic_gbit,
+    dl_traffic_volume_gbit = EXCLUDED.dl_traffic_volume_gbit,
+    ul_traffic_volume_gbit = EXCLUDED.ul_traffic_volume_gbit,
+    user_dl_pdcp_avg_throughput = EXCLUDED.user_dl_pdcp_avg_throughput,
+    user_ul_pdcp_avg_throughput = EXCLUDED.user_ul_pdcp_avg_throughput,
+    dl_prb_usage_rate = EXCLUDED.dl_prb_usage_rate,
+    ul_prb_usage_rate = EXCLUDED.ul_prb_usage_rate,
+    data_source = EXCLUDED.data_source
 """
 
 
-def _network_rows(df: pd.DataFrame) -> list[tuple]:
+def _network_rows(df: pd.DataFrame, source: str = "csv_initial_load") -> list[tuple]:
     rows = []
     for _, r in df.iterrows():
         try:
@@ -230,13 +260,22 @@ def _network_rows(df: pd.DataFrame) -> list[tuple]:
             _to_float(r["Average CQI"]),
             _to_float(r["Average PDSCH MCS"]),
             "daily",
-            "csv_initial_load",
+            source,
         ))
     return rows
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
+def parse_args():
+    parser = argparse.ArgumentParser(description="Ingest Evaluation GUI KPI exports into TimescaleDB.")
+    parser.add_argument("--cell-csv", type=Path, default=CELL_CSV)
+    parser.add_argument("--network-csv", type=Path, default=NETWORK_CSV)
+    parser.add_argument("--source", default="csv_initial_load")
+    return parser.parse_args()
+
+
 def main():
+    args = parse_args()
     run_at = datetime.now(tz=timezone.utc)
 
     log.info("Connecting to TimescaleDB …")
@@ -249,10 +288,10 @@ def main():
     cur = conn.cursor()
 
     # ── Cell-level ──
-    log.info("Reading cell-level CSV: %s", CELL_CSV)
-    cell_df = _read_csv(CELL_CSV)
+    log.info("Reading cell-level CSV: %s", args.cell_csv)
+    cell_df = _read_csv(args.cell_csv)
     log.info("  %d rows read", len(cell_df))
-    cell_rows = _cell_rows(cell_df)
+    cell_rows = _cell_rows(cell_df, args.source)
     log.info("  %d rows prepared for insert", len(cell_rows))
 
     BATCH = 2000
@@ -272,9 +311,9 @@ def main():
     cell_skipped = len(cell_rows) - cell_inserted
 
     # ── Network-level ──
-    log.info("Reading network-level CSV: %s", NETWORK_CSV)
-    net_df   = _read_csv(NETWORK_CSV)
-    net_rows = _network_rows(net_df)
+    log.info("Reading network-level CSV: %s", args.network_csv)
+    net_df   = _read_csv(args.network_csv)
+    net_rows = _network_rows(net_df, args.source)
     log.info("  %d rows prepared", len(net_rows))
     psycopg2.extras.execute_values(cur, NETWORK_INSERT, net_rows, page_size=500)
     conn.commit()
@@ -291,7 +330,7 @@ def main():
         """,
         (
             run_at,
-            "csv_initial_load",
+            args.source,
             "daily",
             cell_df["Date"].min() if not cell_df.empty else None,
             cell_df["Date"].max() if not cell_df.empty else None,

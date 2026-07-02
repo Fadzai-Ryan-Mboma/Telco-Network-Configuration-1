@@ -82,23 +82,56 @@ export default function ResultsPanel({
             </div>
           </div>
 
+          {/* KPI vs Baseline — substantiates the verdict with real numbers,
+              whether the site is healthy or not */}
+          {result.kpi_comparison && result.kpi_comparison.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <BarChart3 className="w-4 h-4 text-accent-teal" />
+                <h4 className="font-medium text-white">KPI vs Baseline</h4>
+              </div>
+              <div className="bg-bg-card-hover rounded-lg divide-y divide-white/5">
+                {result.kpi_comparison.map((kpi, index) => {
+                  const isBelow = kpi.status === 'below_baseline';
+                  return (
+                    <div key={index} className="flex items-center justify-between px-4 py-2 text-sm">
+                      <span className="text-gray-300">{kpi.kpi.replace(/_/g, ' ')}</span>
+                      <span className="flex items-center gap-2">
+                        <span className={isBelow ? 'text-status-warning' : 'text-accent-green'}>
+                          {kpi.current_value ?? 'N/A'}
+                        </span>
+                        <span className="text-gray-500">/ baseline {kpi.baseline ?? 'N/A'}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Recommended Changes */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <Zap className="w-4 h-4 text-accent-teal" />
               <h4 className="font-medium text-white">Recommended Changes</h4>
             </div>
-            <div className="space-y-3">
-              {result.recommendations.map((rec, index) => (
-                <ParameterChange
-                  key={index}
-                  parameter={rec.parameter}
-                  currentValue={rec.current_value}
-                  newValue={rec.recommended_value}
-                  unit={rec.unit}
-                />
-              ))}
-            </div>
+            {result.recommendations.length === 0 ? (
+              <div className="bg-bg-card-hover rounded-lg p-4 text-sm text-gray-400">
+                No parameter changes recommended.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {result.recommendations.map((rec, index) => (
+                  <ParameterChange
+                    key={index}
+                    parameter={rec.parameter}
+                    currentValue={rec.current_value}
+                    newValue={rec.recommended_value}
+                    unit={rec.unit}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* MML Commands */}
@@ -140,7 +173,7 @@ export default function ResultsPanel({
           {/* Action Buttons */}
           <div className="space-y-3">
             <div className="rounded-lg border border-status-warning/30 bg-status-warning/10 p-3 text-xs text-status-warning">
-              Safe mode is active. Approval performs a dry-run unless backend live MML is explicitly enabled.
+              Live mode is active. Approval sends real MML commands to the network element immediately.
             </div>
             <button
               onClick={onApprove}

@@ -13,3 +13,6 @@ logs/
 
 runtime/
 data/report_runs/
+data/evaluation-session.enc
+data/evaluation-session.enc.invalid
+data/evaluation-session.key

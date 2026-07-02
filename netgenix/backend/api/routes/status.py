@@ -13,6 +13,7 @@ from backend.models.schemas import SystemStatus, DatabaseStats
 
 # Import existing database helpers
 from backend.netgenix.services.database import check_api_status, get_database_stats
+from network.evaluation_exporter import session_status
 
 router = APIRouter()
 
@@ -28,12 +29,15 @@ async def get_system_status():
     - Database
     """
     status = check_api_status()
+    database_connected = "Connected" in status.get("db", "")
+    evaluation_connected = bool(session_status().get("connected"))
+    platform_connected = database_connected and evaluation_connected
 
     return SystemStatus(
-        api_connected="Connected" in status.get("api", ""),
+        api_connected=platform_connected,
         ne_connected="Connected" in status.get("ne", ""),
-        db_connected="Connected" in status.get("db", ""),
-        api_status=status.get("api", "Unknown"),
+        db_connected=database_connected,
+        api_status="" if platform_connected else "NetGenix API unavailable",
         ne_status=status.get("ne", "Unknown"),
         db_status=status.get("db", "Unknown")
     )

@@ -11,14 +11,285 @@ import json
 import re
 import os
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+
+class LLMParameterRecommendation(BaseModel):
+    parameter: str
+    recommended_value: str
+    unit: str = ""
+    description: str = ""
+
+
+class LLMKPIComparison(BaseModel):
+    kpi: str
+    current_value: float
+    baseline: float
+    status: str = Field(description="one of: above_baseline, at_baseline, below_baseline")
+
+
+class LLMOptimizationResponse(BaseModel):
+    """Schema enforced via Gemini structured output (with_structured_output).
+
+    Using native JSON-schema constrained decoding instead of a prompt-only
+    JSON request means Gemini cannot silently omit required fields the way
+    it did under free-text prompting (e.g. dropping risk_score or
+    kpi_comparison on some runs while including them on others).
+    """
+
+    issue: str
+    detailed_issue: str = ""
+    recommendations: List[LLMParameterRecommendation] = Field(default_factory=list)
+    detailed_recommendations: str = ""
+    risk_score: float = Field(description="0-10, 0 when recommendations is empty")
+    expected_impact: str = ""
+    detailed_impact: str = ""
+    detailed_risk: str = ""
+    kpi_issue: str = ""
+    kpi_comparison: List[LLMKPIComparison] = Field(default_factory=list)
+    clarifying_question: Optional[str] = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 # Add product root to path so copied agents/tools/domain packages can import.
 sys.path.insert(0, str(PROJECT_ROOT))
+
+LLM_PARAMETER_CATALOG = {
+    "reference_signal_power_pdschcfg": {"label": "Signal Power", "unit": "dBm"},
+    "a3_event_offset": {"label": "A3 Offset", "unit": "dB"},
+    "t310_timer": {"label": "T310 Timer", "unit": "ms"},
+    "p0_nominal_pusch": {"label": "P0 PUSCH", "unit": "dBm"},
+    "pdcch_aggregation_level": {"label": "PDCCH Agg", "unit": ""},
+}
+
+LLM_PARAMETER_ALIASES = {
+    "signal power": "reference_signal_power_pdschcfg",
+    "reference signal power": "reference_signal_power_pdschcfg",
+    "reference_signal_power_pdschcfg": "reference_signal_power_pdschcfg",
+    "rs power": "reference_signal_power_pdschcfg",
+    "a3 offset": "a3_event_offset",
+    "a3_event_offset": "a3_event_offset",
+    "t310 timer": "t310_timer",
+    "t310_timer": "t310_timer",
+    "p0 pusch": "p0_nominal_pusch",
+    "p0 nominal pusch": "p0_nominal_pusch",
+    "p0_nominal_pusch": "p0_nominal_pusch",
+    "pdcch agg": "pdcch_aggregation_level",
+    "pdcch aggregation level": "pdcch_aggregation_level",
+    "pdcch_aggregation_level": "pdcch_aggregation_level",
+}
+
+# Normalized (underscore/whitespace-insensitive) lookup so any spelling the LLM
+# or catalog uses - "reference_signal_power_pdschcfg" or "Reference Signal Power" -
+# resolves to the same canonical key, instead of requiring both forms to be
+# listed verbatim above.
+_NORMALIZED_PARAMETER_LOOKUP = {
+    re.sub(r"[_\s]+", " ", alias.strip().lower()): canonical
+    for alias, canonical in LLM_PARAMETER_ALIASES.items()
+}
+_NORMALIZED_PARAMETER_LOOKUP.update(
+    {re.sub(r"[_\s]+", " ", key.strip().lower()): key for key in LLM_PARAMETER_CATALOG}
+)
+
+
+def _allow_optimizer_fallback() -> bool:
+    return os.getenv("NETGENIX_ALLOW_OPTIMIZER_FALLBACK", "false").strip().lower() in {"1", "true", "yes"}
+
+
+def _canonical_parameter_key(value: Any) -> str | None:
+    normalized = re.sub(r"[_\s]+", " ", str(value or "").strip().lower())
+    return _NORMALIZED_PARAMETER_LOOKUP.get(normalized)
+
+
+# KPIs where a lower value is better (matches frontend/src/constants/kpis.ts
+# lowerIsBetter flags for the same underlying MAE counters).
+KPI_LOWER_IS_BETTER = {"control_channel_load", "feedback_channel_load"}
+
+
+def _collect_llm_context(site_name: str) -> Dict[str, Any]:
+    from backend.netgenix.services.database import get_kpi_history, get_kpi_threshold, get_site_kpis, get_site_parameters
+
+    current_kpis = get_site_kpis(site_name) or {}
+    parameter_values = get_site_parameters(site_name) or {}
+    kpi_names = (
+        "network_access_success",
+        "download_speed",
+        "upload_speed",
+        "download_quality",
+        "upload_quality",
+        "control_channel_load",
+        "feedback_channel_load",
+    )
+    history = {
+        kpi_name: [
+            {"date": row_date, "value": row_value}
+            for row_date, row_value in get_kpi_history(site_name, kpi_name, 7)
+            if row_value is not None
+        ]
+        for kpi_name in kpi_names
+    }
+    # Operating-average baselines calibrated from this network's own historical
+    # data (see database.get_kpi_threshold) — the same numbers the dashboard's
+    # "Operating Average" / HEALTHY-WATCH badges are computed against. Without
+    # these the LLM has no calibrated notion of "good" and will guess.
+    baselines = {
+        kpi_name: {
+            "operating_average": get_kpi_threshold(kpi_name),
+            "lower_is_better": kpi_name in KPI_LOWER_IS_BETTER,
+        }
+        for kpi_name in kpi_names
+    }
+    return {
+        "current_kpis": current_kpis,
+        "history": history,
+        "baselines": baselines,
+        "parameters": {
+            key: {
+                "label": meta["label"],
+                "unit": meta["unit"],
+                "value": parameter_values.get(key),
+            }
+            for key, meta in LLM_PARAMETER_CATALOG.items()
+        },
+    }
+
+
+def _normalize_llm_recommendations(
+    raw_recommendations: List[Dict[str, Any]],
+    current_parameters: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    normalized: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in raw_recommendations:
+        if not isinstance(raw, dict):
+            continue
+        key = _canonical_parameter_key(raw.get("parameter") or raw.get("key"))
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        meta = LLM_PARAMETER_CATALOG[key]
+        current_value = current_parameters.get(key)
+        normalized.append(
+            {
+                "parameter": meta["label"],
+                "parameter_key": key,
+                "current_value": current_value if current_value is not None else "N/A",
+                "recommended_value": raw.get("recommended_value"),
+                "unit": raw.get("unit") or meta["unit"],
+                "description": str(raw.get("description") or "").strip(),
+            }
+        )
+    return normalized
+
+
+def _run_real_llm_optimization(site_name: str, cell_id: int, user_query: str) -> Dict[str, Any]:
+    from langchain_core.messages import HumanMessage, SystemMessage
+
+    from backend.netgenix.services.database import log_optimization_query
+    from utils.llm_factory import get_llm_client
+
+    context = _collect_llm_context(site_name)
+    if not context["current_kpis"]:
+        raise RuntimeError(f"No site KPI data is available for {site_name}")
+    if not any(context["history"].values()):
+        raise RuntimeError(f"No per-site KPI history is available for {site_name}")
+
+    llm = get_llm_client(temperature=0.2, max_tokens=2200, timeout=120)
+    # Structured output uses Gemini's native JSON-schema constrained decoding
+    # (langchain-google-genai>=3.1's with_structured_output), so required
+    # fields like risk_score/kpi_comparison are guaranteed present instead of
+    # relying on the model to follow prose JSON instructions every time.
+    structured_llm = llm.with_structured_output(LLMOptimizationResponse)
+    system_prompt = (
+        "You are NetGenix, a telecom optimization assistant for LTE radio networks. "
+        "Use the supplied per-site current KPIs, seven-day KPI history, per-KPI operating-average "
+        "baselines, and five current parameters. The baselines are calibrated from this network's own "
+        "historical data — treat them as the definitive bar for 'healthy', not generic textbook LTE targets. "
+        "Each baseline has a lower_is_better flag: for lower_is_better KPIs a value ABOVE the baseline is "
+        "the problem; for all others a value BELOW the baseline is the problem. "
+        "Recommend only conservative read-write changes for these parameters: "
+        "Signal Power, A3 Offset, T310 Timer, P0 PUSCH, PDCCH Agg. "
+        "Populate kpi_comparison for every KPI supplied, healthy or not, so the operator can see the "
+        "actual numbers behind your verdict. "
+        "If the site looks healthy, leave recommendations empty and explain specifically which KPIs "
+        "support that conclusion and by how much, citing the real numbers — do not just say 'all KPIs "
+        "are healthy' without the figures. risk_score should be 0 when recommendations is empty. "
+        "If the operator's request is too vague to act on (e.g. 'suggest optimisation' with no target KPI, "
+        "symptom, or goal), still complete the full KPI-vs-baseline health check as above, but also set "
+        "clarifying_question to a short, specific question that would let you give a more targeted answer "
+        "next time (e.g. asking which KPI or user complaint prompted the request). Leave clarifying_question "
+        "null when the request was already specific enough."
+    )
+    human_prompt = (
+        f"Site: {site_name}\n"
+        f"Cell ID: {cell_id}\n"
+        f"Operator request: {user_query}\n\n"
+        f"Current KPIs:\n{json.dumps(context['current_kpis'], indent=2, default=str)}\n\n"
+        f"Per-KPI operating-average baselines (calibrated from this network's real data):\n"
+        f"{json.dumps(context['baselines'], indent=2, default=str)}\n\n"
+        f"7-day KPI history:\n{json.dumps(context['history'], indent=2, default=str)}\n\n"
+        f"Current parameters:\n{json.dumps(context['parameters'], indent=2, default=str)}"
+    )
+    # Gemini occasionally fails to produce output matching the schema (e.g.
+    # wraps it in a markdown code fence instead of raw JSON) even under
+    # constrained decoding; with_structured_output returns None rather than
+    # raising when that happens, so a bare retry recovers most of the time
+    # instead of crashing the whole request.
+    messages = [SystemMessage(content=system_prompt), HumanMessage(content=human_prompt)]
+    payload: LLMOptimizationResponse | None = structured_llm.invoke(messages)
+    if payload is None:
+        logger.warning("Structured LLM output was None for %s, retrying once", site_name)
+        payload = structured_llm.invoke(messages)
+    if payload is None:
+        raise RuntimeError(
+            "The AI model returned a response that could not be parsed into a structured "
+            "recommendation. Please try rephrasing your request."
+        )
+
+    recommendations = _normalize_llm_recommendations(
+        [rec.model_dump() for rec in payload.recommendations],
+        {key: value["value"] for key, value in context["parameters"].items()},
+    )
+    risk_score = max(0.0, min(10.0, payload.risk_score))
+    detailed_recommendations = payload.detailed_recommendations or "\n".join(
+        f"- {item['parameter']}: {item['current_value']} -> {item['recommended_value']} {item['unit']}".strip()
+        for item in recommendations
+    )
+    result = {
+        "status": "success",
+        "issue": payload.issue or "Optimization review completed",
+        "detailed_issue": payload.detailed_issue,
+        "recommendations": recommendations,
+        "detailed_recommendations": detailed_recommendations,
+        # risk_level is always derived from risk_score rather than asking the
+        # model for a separate label, so the two can never disagree.
+        "risk_level": categorize_risk(risk_score),
+        "risk_score": risk_score,
+        "detailed_risk": payload.detailed_risk,
+        "expected_impact": payload.expected_impact,
+        "detailed_impact": payload.detailed_impact or payload.expected_impact,
+        "mml_commands": extract_mml_commands("", recommendations),
+        "kpi_issue": payload.kpi_issue,
+        "kpi_comparison": [kpi.model_dump() for kpi in payload.kpi_comparison],
+        "clarifying_question": payload.clarifying_question,
+        "validation_status": "LLM_ANALYZED",
+        "message": "Optimization analysis completed with live site data and historical KPI context.",
+    }
+
+    log_optimization_query(
+        site_name=site_name,
+        user_query=user_query,
+        status="approved",
+        recommendation_summary=result["issue"],
+        kpi_issue=result["kpi_issue"] or result["issue"],
+        parameters_recommended=json.dumps(recommendations),
+        validation_status=result["validation_status"],
+    )
+    return result
 
 
 def run_optimization(site_name: str, cell_id: int, user_query: str) -> Dict[str, Any]:
@@ -42,57 +313,28 @@ def run_optimization(site_name: str, cell_id: int, user_query: str) -> Dict[str,
         - error_message: Error description if status is "error"
     """
     try:
-        # Import workflow (inside function to avoid issues if not in path)
-        from agents.workflow import run_optimization as run_workflow
-
-        # Run the workflow with individual arguments (not a dict!)
-        # The workflow function expects: site_name: str, user_query: str, cell_id: int
         logger.info(f"Starting optimization workflow for {site_name}")
         logger.info(f"User query: {user_query}")
-        result_state = run_workflow(
-            site_name=site_name,
-            user_query=user_query,
-            cell_id=cell_id
-        )
-
-        # Parse results into UI-friendly format
-        result = parse_workflow_results(result_state)
-
-        # Log the optimization query to activity database
-        try:
-            from backend.netgenix.services.database import log_optimization_query
-            log_optimization_query(
-                site_name=site_name,
-                user_query=user_query,
-                status="approved" if result.get("status") == "success" else "incomplete",
-                recommendation_summary=result.get("issue"),
-                kpi_issue=result.get("issue"),
-                parameters_recommended=json.dumps(result.get("recommendations", [])),
-                validation_status=result.get("validation_status")
+        return _run_real_llm_optimization(site_name, cell_id, user_query)
+    except Exception as exc:
+        logger.exception("Real LLM optimization failed for %s", site_name)
+        if _allow_optimizer_fallback():
+            return run_rule_based_optimization(
+                site_name,
+                cell_id,
+                user_query,
+                fallback_reason=f"Real LLM optimization failed: {exc}",
             )
-            logger.info(f"Logged optimization query for {site_name}")
-        except Exception as log_error:
-            logger.warning(f"Failed to log optimization query: {log_error}")
-
-        return result
-
-    except ImportError as e:
-        logger.error(f"Failed to import workflow: {e}")
-        return run_rule_based_optimization(
-            site_name,
-            cell_id,
-            user_query,
-            fallback_reason=f"AI workflow import failed: {str(e)}",
-        )
-
-    except Exception as e:
-        logger.error(f"Workflow execution error: {e}")
-        return run_rule_based_optimization(
-            site_name,
-            cell_id,
-            user_query,
-            fallback_reason=f"AI workflow execution failed: {str(e)}",
-        )
+        return {
+            "status": "error",
+            "error_message": f"Real LLM optimization is unavailable: {exc}",
+            "issue": "",
+            "recommendations": [],
+            "risk_level": "HIGH",
+            "risk_score": 10.0,
+            "expected_impact": "",
+            "mml_commands": [],
+        }
 
 
 def run_rule_based_optimization(
@@ -865,8 +1107,12 @@ def extract_mml_commands(config_output: str, recommendations: List[Dict[str, Any
             "P0 Nominal PUSCH": "p0_nominal_pusch",
             "p0 nominal pusch": "p0_nominal_pusch",
             "P0 Nominal": "p0_nominal_pusch",
+            "P0 PUSCH": "p0_nominal_pusch",
+            "p0 pusch": "p0_nominal_pusch",
             "PDCCH Aggregation Level": "pdcch_aggregation_level",
             "pdcch aggregation level": "pdcch_aggregation_level",
+            "PDCCH Agg": "pdcch_aggregation_level",
+            "pdcch agg": "pdcch_aggregation_level",
         }
 
         for rec in recommendations:
@@ -878,8 +1124,11 @@ def extract_mml_commands(config_output: str, recommendations: List[Dict[str, Any
                 logger.debug(f"Skipping non-numeric recommendation: {param_name} = {new_value}")
                 continue
 
-            # Map display name to internal name
-            internal_name = param_name_map.get(param_name)
+            # Prefer the canonical key already resolved by the LLM path;
+            # fall back to fuzzy label matching for the rule-based path.
+            internal_name = rec.get("parameter_key")
+            if not internal_name:
+                internal_name = param_name_map.get(param_name)
             if not internal_name:
                 # Try case-insensitive match
                 internal_name = param_name_map.get(param_name.lower())
@@ -1140,41 +1389,70 @@ def execute_optimization(
                 "dry_run": True
             }
 
-        # Execute with MML executor agent
+        # Execute with MML executor agent.
+        # mml_executor_agent's task prompt reads state["validation_output"] for the
+        # approved changes (not config_output/recommended_changes), so it must be
+        # populated here or the agent receives a blank "Approved Changes" section
+        # and has nothing to act on.
+        approved_changes_summary = "\n".join(
+            f"- {rec.get('parameter')}: {rec.get('current_value')} -> {rec.get('recommended_value')} {rec.get('unit', '')}".strip()
+            for rec in recommendations
+        )
+        validation_output = (
+            f"{approved_changes_summary}\n\nMML commands:\n" + "\n".join(mml_commands)
+        )
         execution_state = {
             "site_name": site_name,
             "cell_id": 1,  # Will be handled by batch execution
             "user_query": "Execute approved optimizations",
             "config_output": "\n".join(mml_commands),
             "validation_status": "APPROVED",
+            "validation_output": validation_output,
             "is_validated": True,
             "recommended_changes": recommendations
         }
 
         result_state = mml_executor_agent(execution_state)
 
-        # Parse execution results
         executor_output = result_state.get("executor_output", "")
+        modify_results = result_state.get("modify_results") or []
 
-        # Count successes and failures
-        executed = executor_output.lower().count("success")
-        failed = executor_output.lower().count("fail")
+        if modify_results:
+            # Reliable path: counts are derived from the actual modify-tool
+            # call outcomes (SUCCESS:/FAILURE:/ERROR: prefixes returned by
+            # huawei_tools), not from string-matching the agent's prose report.
+            executed = sum(1 for r in modify_results if r["outcome"] == "success")
+            failed = sum(1 for r in modify_results if r["outcome"] in ("failed", "unknown"))
+            partial = sum(1 for r in modify_results if r["outcome"] == "partial")
 
-        if failed == 0:
-            status = "success"
-            message = f"Successfully executed {executed} commands"
-        elif executed > 0:
-            status = "partial"
-            message = f"Executed {executed} commands, {failed} failed"
+            if failed == 0 and partial == 0:
+                status = "success"
+                message = f"Successfully executed {executed} commands"
+            elif executed > 0 or partial > 0:
+                status = "partial"
+                message = f"Executed {executed} commands, {failed} failed, {partial} partial"
+            else:
+                status = "error"
+                message = f"Failed to execute commands: {executor_output[:200]}"
+
+            details = [
+                {"command": r["tool"], "status": r["outcome"], "message": r["message"][:300]}
+                for r in modify_results
+            ]
         else:
+            # No modify tool was ever called (e.g. rollback capture failed and
+            # the agent aborted before making changes, or execution timed out).
+            executed = 0
+            failed = 0
             status = "error"
-            message = f"Failed to execute commands: {executor_output[:200]}"
+            message = f"No parameter changes were executed: {executor_output[:200]}"
+            details = []
 
         return {
             "status": status,
             "executed": executed,
             "failed": failed,
-            "details": parse_execution_details(executor_output),
+            "details": details,
             "message": message,
             "dry_run": False
         }
@@ -1189,20 +1467,3 @@ def execute_optimization(
             "message": f"Execution failed: {str(e)}",
             "dry_run": False
         }
-
-
-def parse_execution_details(executor_output: str) -> list:
-    """Parse execution details from executor output"""
-    details = []
-
-    # Simple parsing - look for command results in output
-    for line in executor_output.split('\n'):
-        if 'MOD' in line or 'ADD' in line or 'SET' in line:
-            status = "success" if "success" in line.lower() else "failed"
-            details.append({
-                "command": line[:100],
-                "status": status,
-                "message": line
-            })
-
-    return details

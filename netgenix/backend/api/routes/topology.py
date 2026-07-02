@@ -8,6 +8,7 @@ from fastapi import APIRouter
 
 from backend.models.schemas import TopologyResponse, TopologySite
 from backend.netgenix.services.database import get_all_sites, get_site_info, get_site_kpis
+from backend.netgenix.services.db_timescale import get_topology_site_summaries
 
 router = APIRouter()
 
@@ -71,7 +72,10 @@ def _pseudo_coordinates(index: int, total: int) -> tuple[float, float]:
 @router.get("/sites", response_model=TopologyResponse)
 async def get_topology_sites():
     """Return topology view using MAE-derived inventory when available."""
-    inventory = _inventory_sites()
+    try:
+        inventory = get_topology_site_summaries()
+    except Exception:
+        inventory = _inventory_sites()
     if inventory:
         sites = []
         for index, site in enumerate(inventory):
@@ -92,7 +96,7 @@ async def get_topology_sites():
                 availability=availability,
                 call_drop_rate=call_drop_rate,
                 source=site.get("source") or "MAE raw KPI export",
-                last_updated=site.get("last_date"),
+                last_updated=str(site.get("last_date")) if site.get("last_date") else None,
             ))
 
         return TopologyResponse(

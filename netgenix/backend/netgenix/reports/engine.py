@@ -352,7 +352,7 @@ def compute_site_metrics(
     return sorted(metrics, key=lambda record: str(record["site_name"]))
 
 
-def build_executive_kpis(site_metrics: Sequence[Mapping[str, object]]) -> dict[str, float]:
+def build_executive_kpis(site_metrics: Sequence[Mapping[str, object]]) -> dict[str, object]:
     included = [site for site in site_metrics if not site.get("excluded")]
     total_traffic_gb = sum(float(site.get("weekly_traffic_gb") or 0.0) for site in included)
     total_active = sum(float(site.get("active_subscribers") or 0.0) for site in included)
@@ -731,6 +731,33 @@ def run_report_from_files(
     return result
 
 
+def run_report_from_rows(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    source_label: str,
+    exclusions: Iterable[str] | None = None,
+    user_context: str = "automation",
+    evaluation_only: bool = True,
+) -> dict[str, object]:
+    """Generate report artifacts from normalized database rows."""
+    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    run_dir = REPORT_ROOT / run_id
+    run_dir.mkdir(parents=True, exist_ok=False)
+    result = _generate_report_artifacts(
+        run_id=run_id,
+        rows=rows,
+        output_path=run_dir / "netgenix_report.xlsx",
+        pdf_path=run_dir / "netgenix_report.pdf",
+        audit_path=run_dir / "audit.json",
+        input_file_label=source_label,
+        original_filename=source_label,
+        exclusions=exclusions,
+        user_context=user_context,
+        evaluation_only=evaluation_only,
+    )
+    return result
+
+
 def _generate_report_artifacts(
     *,
     run_id: str,
@@ -742,6 +769,7 @@ def _generate_report_artifacts(
     original_filename: str,
     exclusions: Iterable[str] | None,
     user_context: str,
+    evaluation_only: bool = False,
 ) -> dict[str, object]:
     rows = _deduplicate_rows(rows)
     site_metrics = compute_site_metrics(rows, exclusions=exclusions)
@@ -753,6 +781,16 @@ def _generate_report_artifacts(
     top_code_drop_sites = rank_sites(included, "code_drop_average", top_n=20, descending=True)
     bottom_code_drop_sites = rank_sites(included, "code_drop_average", top_n=20, descending=False)
     executive_kpis = build_executive_kpis(site_metrics)
+    if evaluation_only:
+        for key in (
+            "peak_throughput_mbps",
+            "total_subscribers",
+            "active_subscribers",
+            "penetration_rate",
+            "average_gb_per_active_user",
+            "average_throughput_per_active_user",
+        ):
+            executive_kpis[key] = "N/A"
     sections = build_report_sections()
     exceptions = [
         {

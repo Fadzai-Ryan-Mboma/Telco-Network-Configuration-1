@@ -38,11 +38,14 @@ services:
       DB_NAME: netgenix
       DB_USER: netgenix
       DB_PASSWORD: ${DB_PASSWORD:-netgenix_secure_2026}
+      EVALUATION_SESSION_PATH: /app/data/evaluation-session.enc
+      EVALUATION_SESSION_KEY_PATH: /app/data/evaluation-session.key
     ports:
       - "8510:8510"
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ${NETGENIX_DATA_DIR:-~/netgenix-data}/data:/app/data
+      - ${NETGENIX_DATA_DIR:-~/netgenix-data}/logs:/app/logs
+      - ${NETGENIX_DATA_DIR:-~/netgenix-data}/runtime:/app/runtime
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8510/health"]
       interval: 30s
@@ -58,10 +61,8 @@ services:
     restart: unless-stopped
     depends_on:
       - netgenix-backend
-    environment:
-      VITE_API_URL: http://netgenix-backend:8510
     ports:
-      - "5180:80"
+      - "8511:80"
 
   # ── 4. Collector ───────────────────────────────────────────────────────────
   netgenix-collector:
@@ -81,9 +82,12 @@ services:
       DB_NAME: netgenix
       DB_USER: netgenix
       DB_PASSWORD: ${DB_PASSWORD:-netgenix_secure_2026}
+      EVALUATION_SESSION_PATH: /app/data/evaluation-session.enc
+      EVALUATION_SESSION_KEY_PATH: /app/data/evaluation-session.key
     volumes:
-      - ./data/downloads:/app/downloads
-      - ./logs:/app/logs
+      - ${NETGENIX_DATA_DIR:-~/netgenix-data}/data:/app/data
+      - ${NETGENIX_DATA_DIR:-~/netgenix-data}/logs:/app/logs
+      - ${NETGENIX_DATA_DIR:-~/netgenix-data}/runtime:/app/runtime
       - /tmp/.X11-unix:/tmp/.X11-unix
 
 volumes:

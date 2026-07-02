@@ -27,7 +27,7 @@ os.environ.setdefault("HUAWEI_USERNAME", os.getenv("NETGENIX_HUAWEI_USERNAME", "
 os.environ.setdefault("HUAWEI_PASSWORD", os.getenv("NETGENIX_HUAWEI_PASSWORD", ""))
 
 # Import routers
-from backend.api.routes import activity, diagnostics, kpi, optimization, reports, sites, status, topology
+from backend.api.routes import activity, diagnostics, evaluation, kpi, optimization, reports, sites, status, topology
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -76,6 +76,7 @@ app.include_router(activity.router, prefix="/api/activity", tags=["Activity"])
 app.include_router(status.router, prefix="/api/status", tags=["Status"])
 app.include_router(diagnostics.router, prefix="/api/diagnostics", tags=["Diagnostics"])
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
+app.include_router(evaluation.router, prefix="/api/evaluation", tags=["Evaluation"])
 app.include_router(topology.router, prefix="/api/topology", tags=["Topology"])
 
 @app.get("/")

@@ -106,7 +106,7 @@ agents:
   # 6. MML Executor Agent
   mml_executor:
     enabled: true
-    dry_run: true  # NetGenix defaults to safe simulation until explicitly unlocked
+    dry_run: false  # Live MML execution enabled
     require_approval: true  # CRITICAL: Require engineer approval before executing parameter changes
     command_logging: true
     rollback_support: true

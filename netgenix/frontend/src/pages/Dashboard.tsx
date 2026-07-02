@@ -1,5 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Header, LiveBanner } from '../components/Header';
 import { ParameterGrid, StatusIndicators } from '../components/ParameterCards';
 import { AIAssistant } from '../components/AIAssistant';
@@ -21,8 +21,15 @@ import {
   getNBIDiagnostics,
   getTopologySites,
 } from '../services/api';
-import type { OptimizationResult } from '../services/api';
+import type { KPIHistory, OptimizationResult } from '../services/api';
 import type { ThemeMode } from '../App';
+
+const ACTIVE_BINDURA_SITES = new Set([
+  'MSH-0014-Chipadze',
+  'MSH-0112-Bindura Hospital',
+  'MSH-0331-Chiwaridzo 2',
+  'MSH-0013-Bindura Zaoga',
+]);
 
 interface Message {
   id: string;
@@ -50,31 +57,55 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
     },
   ]);
   const [optimizationResult, setOptimizationResult] = useState<OptimizationResult | null>(null);
-  const [selectedKPI, setSelectedKPI] = useState('network_access_success');
+  const [selectedKPIs, setSelectedKPIs] = useState<string[]>(['radio_net_availability_rate']);
   const [selectedDays, setSelectedDays] = useState(7);
+  const [selectedHistorySite, setSelectedHistorySite] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'performance' | 'activity' | 'reports' | 'topology'>('performance');
 
   // Queries
-  const { data: sites = [] } = useQuery({
+  const { data: sites = [], isLoading: sitesLoading, isError: sitesError } = useQuery({
     queryKey: ['sites'],
     queryFn: getSites,
     retry: 3,
     refetchInterval: 15000,
   });
 
+  const activeSites = sites.filter((site) => ACTIVE_BINDURA_SITES.has(site.site_name));
+
+  useEffect(() => {
+    if (activeSites.length === 0) {
+      return;
+    }
+
+    const siteStillExists = selectedSite
+      ? activeSites.some((site) => site.site_name === selectedSite)
+      : false;
+
+    if (!siteStillExists) {
+      setSelectedSite(activeSites[0].site_name);
+    }
+  }, [activeSites, selectedSite]);
+
+  useEffect(() => {
+    if (!selectedSite) {
+      return;
+    }
+    setSelectedHistorySite(selectedSite);
+  }, [selectedSite]);
+
   useEffect(() => {
     if (sites.length === 0) {
       return;
     }
 
-    const siteStillExists = selectedSite
-      ? sites.some((site) => site.site_name === selectedSite)
+    const historySiteStillExists = selectedHistorySite
+      ? sites.some((site) => site.site_name === selectedHistorySite)
       : false;
 
-    if (!siteStillExists) {
-      setSelectedSite(sites[0].site_name);
+    if (!historySiteStillExists) {
+      setSelectedHistorySite(selectedSite ?? sites[0].site_name);
     }
-  }, [sites, selectedSite]);
+  }, [sites, selectedSite, selectedHistorySite]);
 
   const { data: siteInfo } = useQuery({
     queryKey: ['siteInfo', selectedSite],
@@ -88,10 +119,10 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
     queryKey: ['parameters', selectedSite],
     queryFn: () => getSiteParameters(selectedSite!, useLiveParameters),
     enabled: !!selectedSite,
-    refetchInterval: useLiveParameters ? 60000 : false,
+    refetchInterval: false,
   });
 
-  const { data: systemStatus } = useQuery({
+  const { data: systemStatus, isLoading: statusLoading } = useQuery({
     queryKey: ['status'],
     queryFn: getSystemStatus,
     refetchInterval: 15000,
@@ -104,16 +135,42 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
   });
 
   const { data: kpiValues } = useQuery({
-    queryKey: ['kpiValues', selectedSite],
-    queryFn: () => getKPIValues(selectedSite!),
-    enabled: !!selectedSite,
+    queryKey: ['kpiValues', selectedHistorySite],
+    queryFn: () => getKPIValues(selectedHistorySite!),
+    enabled: !!selectedHistorySite,
   });
 
-  const { data: kpiHistory, isLoading: historyLoading } = useQuery({
-    queryKey: ['kpiHistory', selectedSite, selectedKPI, selectedDays],
-    queryFn: () => getKPIHistory(selectedSite!, selectedKPI, selectedDays),
-    enabled: !!selectedSite,
+  const kpiHistoryQueries = useQueries({
+    queries: selectedKPIs.map((kpi) => ({
+      queryKey: ['kpiHistory', selectedHistorySite, kpi, selectedDays],
+      queryFn: () => getKPIHistory(selectedHistorySite!, kpi, selectedDays),
+      enabled: !!selectedHistorySite,
+    })),
   });
+
+  const kpiHistories = useMemo(
+    () => kpiHistoryQueries.map((query) => query.data).filter((data): data is KPIHistory => !!data),
+    [kpiHistoryQueries]
+  );
+  const historyLoading = kpiHistoryQueries.some((query) => query.isLoading);
+
+  // Outer-join each selected KPI's history by date so Recharts can render
+  // every series from one merged dataset.
+  const mergedChartData = useMemo(() => {
+    const byDate = new Map<string, Record<string, string | number>>();
+    for (const history of kpiHistories) {
+      for (const point of history.data) {
+        const row = byDate.get(point.date) ?? { date: point.date };
+        row[history.kpi_name] = point.value;
+        byDate.set(point.date, row);
+      }
+    }
+    return Array.from(byDate.values()).sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  }, [kpiHistories]);
+
+  // Primary KPI (first selected) keeps driving the summary cards, unchanged
+  // from single-KPI behavior.
+  const kpiHistory = kpiHistories.find((history) => history.kpi_name === selectedKPIs[0]) ?? null;
 
   const { data: activityData } = useQuery({
     queryKey: ['activity'],
@@ -136,13 +193,17 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
       }),
     onSuccess: (result) => {
       setOptimizationResult(result);
+      const baseMessage = result.status === 'success'
+        ? `Analysis complete. I've identified ${result.issue}. Review the recommendations on the right panel.`
+        : result.error_message || 'Analysis completed with issues.';
+      const content = result.clarifying_question
+        ? `${baseMessage}\n\nTo give you a more targeted answer next time: ${result.clarifying_question}`
+        : baseMessage;
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
-          content: result.status === 'success'
-            ? `Analysis complete. I've identified ${result.issue}. Review the recommendations on the right panel.`
-            : result.error_message || 'Analysis completed with issues.',
+          content,
           isBot: true,
           timestamp: new Date(),
         },
@@ -275,7 +336,9 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
     <div className="min-h-screen flex flex-col">
       {/* Header */}
       <Header
-        sites={sites}
+        sites={activeSites}
+        sitesLoading={sitesLoading}
+        sitesError={sitesError}
         selectedSite={selectedSite}
         siteInfo={siteInfo ?? null}
         onSiteSelect={setSelectedSite}
@@ -288,8 +351,8 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
       <main className="flex-1 p-6 space-y-6">
         {/* Live Banner */}
         <LiveBanner
-          connected={systemStatus?.db_connected ?? false}
-          statusText={systemStatus?.api_status ?? null}
+          connected={systemStatus?.api_connected ?? false}
+          loading={statusLoading}
           timestamp={parameters?.last_updated}
         />
 
@@ -369,10 +432,14 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
 
           {activeTab === 'performance' ? (
             <PerformanceChart
-              kpiHistory={kpiHistory ?? null}
+              kpiHistory={kpiHistory}
+              chartData={mergedChartData}
               currentKPIs={kpiValues ?? null}
-              selectedKPI={selectedKPI}
-              onKPIChange={setSelectedKPI}
+              sites={sites}
+              selectedSite={selectedHistorySite}
+              onSiteChange={setSelectedHistorySite}
+              selectedKPIs={selectedKPIs}
+              onKPIsChange={setSelectedKPIs}
               selectedDays={selectedDays}
               onDaysChange={setSelectedDays}
               loading={historyLoading}

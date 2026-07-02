@@ -158,3 +158,28 @@ CREATE TABLE IF NOT EXISTS ingestion_log (
     status          TEXT            NOT NULL DEFAULT 'ok',  -- 'ok' | 'partial' | 'error'
     error_message   TEXT
 );
+
+CREATE TABLE IF NOT EXISTS report_automation_jobs (
+    job_id UUID PRIMARY KEY,
+    status TEXT NOT NULL,
+    refresh_requested BOOLEAN NOT NULL,
+    period_start DATE NOT NULL,
+    period_end DATE NOT NULL,
+    exclusions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    stage TEXT NOT NULL DEFAULT 'queued',
+    error_message TEXT,
+    report_run_id TEXT,
+    source_freshness TIMESTAMPTZ,
+    rows_ingested INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_report_automation_jobs_created
+    ON report_automation_jobs (created_at DESC);
+
+CREATE TABLE IF NOT EXISTS report_exclusions (
+    site_name TEXT PRIMARY KEY,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);

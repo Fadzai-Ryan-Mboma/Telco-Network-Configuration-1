@@ -48,6 +48,7 @@ def mml_executor_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         state["executor_output"] = f"EXECUTION SKIPPED: Validation status is {validation_status}"
         state["agent_outputs"]["mml_executor"] = state["executor_output"]
         state["optimization_success"] = False
+        state["modify_results"] = []
         return state
 
     task = f"""
@@ -116,7 +117,37 @@ If in DRY_RUN mode, simulate execution without making real changes.
             logger.error(f"⚠️  The LLM took longer than 60 seconds to respond")
             state["executor_output"] = f"ERROR: Agent timed out after 60 seconds. No changes were made."
             state["optimization_success"] = False
+            state["modify_results"] = []
             return state
+
+        # Extract structured outcomes from the actual modify-tool calls (ToolMessages),
+        # rather than relying on the agent's freeform final report. huawei_tools'
+        # modify_huawei_parameter(_site) always return a string that starts with
+        # SUCCESS:/PARTIAL SUCCESS:/FAILURE:/ERROR:, which is reliable to parse;
+        # the agent's prose summary is not (it can say "no failures" or discuss a
+        # failure hypothetically, which naive substring counts miscount).
+        modify_tool_names = {"modify_huawei_parameter", "modify_huawei_parameter_site"}
+        modify_results = []
+        for msg in result.get("messages", []):
+            msg_type = str(getattr(msg, 'type', '') or getattr(msg, '__class__', '').__name__).lower()
+            if 'tool' not in msg_type:
+                continue
+            tool_name = getattr(msg, 'name', '')
+            if tool_name not in modify_tool_names:
+                continue
+            content = message_to_text(msg)
+            content_upper = content.upper()
+            if content_upper.startswith("SUCCESS"):
+                outcome = "success"
+            elif content_upper.startswith("PARTIAL SUCCESS"):
+                outcome = "partial"
+            elif content_upper.startswith(("FAILURE", "ERROR")):
+                outcome = "failed"
+            else:
+                outcome = "unknown"
+            modify_results.append({"tool": tool_name, "outcome": outcome, "message": content})
+
+        state["modify_results"] = modify_results
 
         # Extract output from AI messages only (not tool calls)
         ai_responses = []
@@ -167,12 +198,19 @@ Write your complete detailed execution report NOW:
         state["agent_outputs"] = state.get("agent_outputs", {})
         state["agent_outputs"]["mml_executor"] = output
 
-        # Determine success
-        output_upper = output.upper()
-        state["optimization_success"] = "SUCCESS" in output_upper and "FAILURE" not in output_upper
+        # Determine success from the structured modify-tool results when any
+        # modify calls were made; fall back to the prose report only if the
+        # agent never called a modify tool (e.g. it aborted after rollback
+        # capture failed).
+        if modify_results:
+            state["optimization_success"] = all(r["outcome"] == "success" for r in modify_results)
+        else:
+            output_upper = output.upper()
+            state["optimization_success"] = "SUCCESS" in output_upper and "FAILURE" not in output_upper
 
     except Exception as e:
         state["executor_output"] = f"ERROR: {str(e)}"
         state["optimization_success"] = False
+        state["modify_results"] = []
 
     return state

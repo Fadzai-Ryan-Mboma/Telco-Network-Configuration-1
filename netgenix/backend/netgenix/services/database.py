@@ -6,6 +6,7 @@ It is intentionally inside the backend package so NetGenix no longer depends
 on the old Streamlit-oriented `ui/` package layout.
 """
 
+import csv
 import sqlite3
 import logging
 import os
@@ -22,13 +23,193 @@ logger = logging.getLogger(__name__)
 
 # Database paths
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-DB_PATH = PROJECT_ROOT / "data" / "lz_network.db"
+DB_PATH = Path(os.getenv("NETGENIX_SQLITE_DB", PROJECT_ROOT / "runtime" / "netgenix.db"))
 HISTORICAL_DB_PATH = PROJECT_ROOT / "data" / "liquid_zimbabwe.db"
+SITE_INVENTORY_PATH = PROJECT_ROOT / "data" / "site_inventory.csv"
+
+LEGACY_TO_TIMESCALE_KPI = {
+    "network_access_success": "rrc_setup_success_rate_all",
+    "download_speed": "user_dl_pdcp_avg_throughput",
+    "download_quality": "dl_ibler",
+    "upload_speed": "user_ul_pdcp_avg_throughput",
+    "upload_quality": "ul_ibler",
+    "control_channel_load": "pdcch_cce_usage_rate",
+    "feedback_channel_load": "pucch_usage_rate",
+}
+
+PARAMETER_CHANGE_FIELDS = {
+    "reference_signal_power_pdschcfg",
+    "a3_event_offset",
+    "t310_timer",
+    "p0_nominal_pusch",
+    "pdcch_aggregation_level",
+}
+
+
+def _legacy_value_from_timescale(kpi_name: str, value: Optional[float]) -> Optional[float]:
+    if value is None:
+        return None
+    if kpi_name in {"download_quality", "upload_quality"}:
+        return max(0.0, min(100.0, 100.0 - float(value)))
+    return float(value)
+
+
+def _get_inventory_rows() -> List[Dict[str, str]]:
+    """Read current sites from TimescaleDB, with CSV as an offline fallback."""
+    try:
+        from .db_timescale import list_enodebs
+
+        sites = list_enodebs()
+        if sites:
+            return [{"site_name": site_name} for site_name in sites]
+    except Exception as db_exc:
+        logger.warning("TimescaleDB site inventory unavailable: %s", db_exc)
+
+    try:
+        with SITE_INVENTORY_PATH.open(newline="", encoding="utf-8-sig") as inventory_file:
+            return [row for row in csv.DictReader(inventory_file) if row.get("site_name")]
+    except (OSError, csv.Error, KeyError) as exc:
+        logger.error("Error reading site inventory: %s", exc)
+        return []
+
+
+def _get_inventory_sites() -> List[Dict[str, str]]:
+    return [{"site_name": row["site_name"]} for row in _get_inventory_rows()]
+
+
+def _get_inventory_site(site_name: str) -> Optional[Dict[str, str]]:
+    return next((row for row in _get_inventory_rows() if row["site_name"] == site_name), None)
+
+
+def _inventory_float(row: Dict[str, str], key: str) -> Optional[float]:
+    try:
+        return float(row[key]) if row.get(key) else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _get_inventory_site_info(site_name: str) -> Optional[Dict[str, any]]:
+    row = _get_inventory_site(site_name)
+    if not row:
+        return None
+
+    cell_count = int(row.get("cell_count") or 0)
+    if not cell_count:
+        try:
+            from .db_timescale import get_latest_cell_kpis
+
+            cell_count = len(get_latest_cell_kpis(site_name))
+        except Exception as exc:
+            logger.warning("Could not derive cell count for %s: %s", site_name, exc)
+
+    return {
+        "site_name": site_name,
+        "location": site_name.split("-", 2)[-1] if "-" in site_name else "Unknown",
+        "cell_count": cell_count,
+        "cell_id": 1,
+        "status": "Inventory",
+        "last_updated": row.get("last_date") or None,
+    }
+
+
+def _get_inventory_kpis(site_name: str) -> Optional[Dict[str, any]]:
+    row = _get_inventory_site(site_name)
+    if not row:
+        return None
+
+    return {
+        "network_access_success": _inventory_float(row, "avg_rrc_success"),
+        "download_speed": None,
+        "download_quality": None,
+        "upload_speed": None,
+        "upload_quality": None,
+        "control_channel_load": _inventory_float(row, "avg_dl_prb_usage"),
+        "feedback_channel_load": _inventory_float(row, "avg_ul_prb_usage"),
+        "timestamp": row.get("last_date") or None,
+    }
+
+
+def _latest_parameter_snapshot(site_name: str) -> Dict[str, any]:
+    try:
+        from .huawei_parameter_snapshots import get_top_15_parameters_from_db
+    except Exception as exc:
+        logger.debug("Huawei parameter snapshot import unavailable for %s: %s", site_name, exc)
+        return {}
+
+    try:
+        snapshot = get_top_15_parameters_from_db(site_name)
+    except Exception as exc:
+        logger.warning("Could not read Huawei parameter snapshot for %s: %s", site_name, exc)
+        return {}
+
+    if not snapshot:
+        return {}
+
+    values: Dict[str, any] = {}
+    for key, payload in snapshot.items():
+        values[key] = payload.get("value") if isinstance(payload, dict) else None
+    return values
+
+
+def _timescale_site_kpis(site_name: str, days: int = 7) -> Optional[Dict[str, any]]:
+    try:
+        from .db_timescale import get_enodeb_summary
+    except Exception as exc:
+        logger.debug("Timescale KPI summary import unavailable for %s: %s", site_name, exc)
+        return None
+
+    try:
+        summary = get_enodeb_summary(site_name, days)
+    except Exception as exc:
+        logger.warning("Timescale KPI summary failed for %s: %s", site_name, exc)
+        return None
+
+    if not summary:
+        return None
+
+    try:
+        from .db_timescale import get_latest_cell_kpis
+
+        latest_rows = get_latest_cell_kpis(site_name)
+        timestamp = max((row.get("time") for row in latest_rows if row.get("time")), default=None)
+    except Exception as exc:
+        logger.debug("Timescale latest-row lookup failed for %s: %s", site_name, exc)
+        timestamp = None
+
+    data: Dict[str, any] = {
+        kpi_name: _legacy_value_from_timescale(kpi_name, summary.get(timescale_name))
+        for kpi_name, timescale_name in LEGACY_TO_TIMESCALE_KPI.items()
+    }
+    data["timestamp"] = timestamp.isoformat() if hasattr(timestamp, "isoformat") else timestamp
+    return data
+
+
+def _timescale_kpi_history(site_name: str, kpi_name: str, days: int) -> List[Tuple[str, float]]:
+    timescale_name = LEGACY_TO_TIMESCALE_KPI.get(kpi_name)
+    if not timescale_name:
+        return []
+
+    try:
+        from .db_timescale import get_cell_kpi_history
+
+        rows = get_cell_kpi_history(site_name, timescale_name, days, "daily")
+    except Exception as exc:
+        logger.warning("Timescale KPI history failed for %s / %s: %s", site_name, kpi_name, exc)
+        return []
+
+    history = []
+    for row in rows:
+        value = _legacy_value_from_timescale(kpi_name, row.get("value"))
+        if value is None:
+            continue
+        history.append((str(row["date"]), value))
+    return history
 
 
 def get_db_connection(db_path: Path = DB_PATH) -> sqlite3.Connection:
     """Get database connection."""
     try:
+        db_path.parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row  # Return rows as dictionaries
         return conn
@@ -63,11 +244,11 @@ def get_all_sites() -> List[Dict[str, str]]:
             })
 
         conn.close()
-        return sites
+        return sites or _get_inventory_sites()
 
     except Exception as e:
         logger.error(f"Error getting sites: {e}")
-        return []
+        return _get_inventory_sites()
 
 
 def get_site_cell_count(site_name: str) -> int:
@@ -97,7 +278,8 @@ def get_site_cell_count(site_name: str) -> int:
 
     except Exception as e:
         logger.error(f"Error getting cell count for {site_name}: {e}")
-        return 0
+        row = _get_inventory_site(site_name)
+        return int(row.get("cell_count") or 0) if row else 0
 
 
 def get_site_info(site_name: str) -> Optional[Dict[str, any]]:
@@ -144,11 +326,11 @@ def get_site_info(site_name: str) -> Optional[Dict[str, any]]:
             }
 
         conn.close()
-        return None
+        return _get_inventory_site_info(site_name)
 
     except Exception as e:
         logger.error(f"Error getting site info for {site_name}: {e}")
-        return None
+        return _get_inventory_site_info(site_name)
 
 
 def get_site_parameters(site_name: str) -> Optional[Dict[str, any]]:
@@ -164,6 +346,8 @@ def get_site_parameters(site_name: str) -> Optional[Dict[str, any]]:
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        params: Dict[str, any] = _latest_parameter_snapshot(site_name)
 
         # Check if parameter_changes table has data for this site
         cursor.execute("""
@@ -181,46 +365,22 @@ def get_site_parameters(site_name: str) -> Optional[Dict[str, any]]:
         conn.close()
 
         if rows:
-            # Build parameter dict from parameter_changes
-            params = {
-                "reference_signal_power_pdschcfg": -180,
-                "a3_event_offset": 3,
-                "t310_timer": 1000,
-                "p0_nominal_pusch": -96,
-                "pdcch_aggregation_level": 4,
-                "last_modified": None
-            }
-
-            for row in rows:
-                param_name = row["parameter_name"]
-                if param_name in params:
-                    params[param_name] = float(row["new_value"]) if row["new_value"] else params[param_name]
-                    if not params["last_modified"]:
-                        params["last_modified"] = row["timestamp"]
-
-            return params
-
-        # No parameter changes found - return defaults
-        return {
-            "reference_signal_power_pdschcfg": -180,
-            "a3_event_offset": 3,
-            "t310_timer": 1000,
-            "p0_nominal_pusch": -96,
-            "pdcch_aggregation_level": 4,
-            "last_modified": None
-        }
+            params["last_modified"] = rows[0]["timestamp"]
+        for row in rows:
+            if row["parameter_name"] not in PARAMETER_CHANGE_FIELDS:
+                continue
+            value = row["new_value"]
+            try:
+                value = float(value) if value is not None else None
+            except (TypeError, ValueError):
+                pass
+            params[row["parameter_name"]] = value
+        return params or None
 
     except Exception as e:
         logger.error(f"Error getting parameters for {site_name}: {e}")
-        # Return defaults on error
-        return {
-            "reference_signal_power_pdschcfg": -180,
-            "a3_event_offset": 3,
-            "t310_timer": 1000,
-            "p0_nominal_pusch": -96,
-            "pdcch_aggregation_level": 4,
-            "last_modified": None
-        }
+        snapshot = _latest_parameter_snapshot(site_name)
+        return snapshot or None
 
 
 def get_site_kpis(site_name: str) -> Optional[Dict[str, float]]:
@@ -233,6 +393,10 @@ def get_site_kpis(site_name: str) -> Optional[Dict[str, float]]:
     Returns:
         Dict with aggregated KPI values or None
     """
+    timescale_kpis = _timescale_site_kpis(site_name, days=7)
+    if timescale_kpis:
+        return timescale_kpis
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -247,7 +411,7 @@ def get_site_kpis(site_name: str) -> Optional[Dict[str, float]]:
         timestamp_row = cursor.fetchone()
         if not timestamp_row or not timestamp_row["latest_timestamp"]:
             conn.close()
-            return None
+            return _get_inventory_kpis(site_name)
 
         latest_timestamp = timestamp_row["latest_timestamp"]
 
@@ -281,11 +445,11 @@ def get_site_kpis(site_name: str) -> Optional[Dict[str, float]]:
                 "feedback_channel_load": row["feedback_channel_load"],
                 "timestamp": row["timestamp"]
             }
-        return None
+        return _get_inventory_kpis(site_name)
 
     except Exception as e:
         logger.error(f"Error getting KPIs for {site_name}: {e}")
-        return None
+        return _get_inventory_kpis(site_name)
 
 
 def get_kpi_history(site_name: str, kpi_name: str, days: int = 7) -> List[Tuple[str, float]]:
@@ -300,6 +464,10 @@ def get_kpi_history(site_name: str, kpi_name: str, days: int = 7) -> List[Tuple[
     Returns:
         List of (date, value) tuples with averaged values across all cells
     """
+    timescale_history = _timescale_kpi_history(site_name, kpi_name, days)
+    if timescale_history:
+        return timescale_history
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -315,7 +483,10 @@ def get_kpi_history(site_name: str, kpi_name: str, days: int = 7) -> List[Tuple[
         latest_row = cursor.fetchone()
         if not latest_row or not latest_row["latest_timestamp"]:
             conn.close()
-            return []
+            inventory_kpis = _get_inventory_kpis(site_name)
+            value = inventory_kpis.get(kpi_name) if inventory_kpis else None
+            timestamp = inventory_kpis.get("timestamp") if inventory_kpis else None
+            return [(timestamp, value)] if timestamp and value is not None else []
 
         end_date = datetime.fromisoformat(str(latest_row["latest_timestamp"]))
         start_date = end_date - timedelta(days=days)
@@ -344,7 +515,10 @@ def get_kpi_history(site_name: str, kpi_name: str, days: int = 7) -> List[Tuple[
 
     except Exception as e:
         logger.error(f"Error getting KPI history for {site_name}, {kpi_name}: {e}")
-        return []
+        inventory_kpis = _get_inventory_kpis(site_name)
+        value = inventory_kpis.get(kpi_name) if inventory_kpis else None
+        timestamp = inventory_kpis.get("timestamp") if inventory_kpis else None
+        return [(timestamp, value)] if timestamp and value is not None else []
 
 
 def get_kpi_threshold(kpi_name: str) -> float:
@@ -537,6 +711,18 @@ def get_database_stats() -> Dict[str, int]:
     Returns:
         Dict with counts of sites, records, etc.
     """
+    try:
+        from .db_timescale import get_ingestion_stats
+
+        stats = get_ingestion_stats()
+        return {
+            "total_sites": stats.get("enodebs", 0),
+            "total_records": stats.get("total_rows", 0),
+            "latest_update": stats.get("latest_time"),
+        }
+    except Exception as exc:
+        logger.warning("Timescale database stats unavailable: %s", exc)
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()

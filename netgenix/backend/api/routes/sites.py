@@ -2,6 +2,7 @@
 Sites API endpoints
 """
 
+import logging
 import sys
 from pathlib import Path
 from typing import List
@@ -19,11 +20,35 @@ from backend.netgenix.services.database import (
     get_all_sites,
     get_site_info,
     get_site_parameters,
-    get_live_parameters,
     check_api_status
 )
+from backend.netgenix.services.huawei_parameter_snapshots import (
+    get_top_15_parameters_from_db,
+    get_top_15_parameters_live,
+)
+from backend.netgenix.services.parameter_catalog import TOP_15_PARAMETERS
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
+
+
+def _get_catalog_parameters(site_name: str):
+    try:
+        return get_top_15_parameters_from_db(site_name)
+    except Exception as exc:
+        logger.warning("Parameter snapshot fallback for %s: %s", site_name, exc)
+        return {
+            parameter.key: {
+                "value": None,
+                "unit": parameter.unit,
+                "source": "unavailable",
+                "label": parameter.label,
+                "category": parameter.category,
+                "priority": parameter.priority,
+                "description": parameter.description,
+            }
+            for parameter in TOP_15_PARAMETERS
+        }
 
 
 @router.get("", response_model=List[SiteBasic])
@@ -68,76 +93,38 @@ async def get_site_params(site_name: str, live: bool = False):
     if not site_info:
         raise HTTPException(status_code=404, detail=f"Site '{site_name}' not found")
 
-    # Parameter units mapping
-    units = {
-        "reference_signal_power_pdschcfg": "dBm",
-        "a3_event_offset": "dB",
-        "t310_timer": "ms",
-        "p0_nominal_pusch": "dBm",
-        "pdcch_aggregation_level": ""
-    }
-
+    live_errors: list[str] = []
     if live:
-        # Try live API first
-        live_params = get_live_parameters(site_name)
-
-        if live_params:
-            errors = live_params.get("errors", [])
-            site_offline = live_params.get("site_offline", False)
-
-            # Build parameters dict
-            params = {}
-            for key in ["reference_signal_power_pdschcfg", "a3_event_offset",
-                       "t310_timer", "p0_nominal_pusch", "pdcch_aggregation_level"]:
-                value = live_params.get(key)
-                params[key] = ParameterValue(
-                    value=value,
-                    unit=units.get(key, ""),
-                    source="live_api" if value is not None and not errors else "database"
-                )
-
-            # If we have errors or site is offline, fall back to database for missing values
-            if errors or site_offline:
-                db_params = get_site_parameters(site_name)
-                for key in params:
-                    if params[key].value is None and db_params:
-                        params[key] = ParameterValue(
-                            value=db_params.get(key),
-                            unit=units.get(key, ""),
-                            source="database"
-                        )
+        params, errors = get_top_15_parameters_live(site_name)
+        live_errors = errors
+        if params:
+            fallback_params = _get_catalog_parameters(site_name) if errors else {}
+            for key, parameter in params.items():
+                if parameter.get("value") is None and key in fallback_params:
+                    params[key] = fallback_params[key]
 
             return SiteParameters(
                 site_name=site_name,
-                parameters=params,
+                parameters={key: ParameterValue(**value) for key, value in params.items()},
                 status="success" if not errors else "fallback",
-                site_offline=site_offline,
-                last_updated=live_params.get("last_modified"),
+                site_offline=False,
+                last_updated=None,
                 errors=errors
             )
 
     # Fall back to database
-    db_params = get_site_parameters(site_name)
-
-    if not db_params:
+    params = _get_catalog_parameters(site_name)
+    if not params:
         raise HTTPException(status_code=404, detail=f"No parameters found for site '{site_name}'")
 
-    params = {}
-    for key in ["reference_signal_power_pdschcfg", "a3_event_offset",
-               "t310_timer", "p0_nominal_pusch", "pdcch_aggregation_level"]:
-        params[key] = ParameterValue(
-            value=db_params.get(key),
-            unit=units.get(key, ""),
-            source="database"
-        )
-
+    has_values = any(parameter.get("value") is not None for parameter in params.values())
     return SiteParameters(
         site_name=site_name,
-        parameters=params,
-        status="fallback",
-        site_offline=False,
-        last_updated=db_params.get("last_modified"),
-        errors=[]
+        parameters={key: ParameterValue(**value) for key, value in params.items()},
+        status="fallback" if has_values else "error",
+        site_offline=not has_values,
+        last_updated=None,
+        errors=live_errors or ([] if has_values else ["No real parameter snapshot is available for this site."])
     )
 
 

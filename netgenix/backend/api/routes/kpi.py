@@ -49,8 +49,38 @@ from backend.netgenix.services.db_timescale import (
     list_cells,
     list_enodebs,
 )
+from backend.netgenix.services.kpi_csv import (
+    get_csv_enodeb_history,
+    get_csv_enodeb_summary,
+    get_csv_network_history,
+    get_csv_network_latest,
+)
 
 router = APIRouter()
+
+
+# Register fixed network paths before the legacy /{site_name} routes.
+@router.get("/network/latest")
+async def get_network_latest():
+    row = get_latest_network_kpis() if is_timescale_available() else get_csv_network_latest()
+    if not row:
+        raise HTTPException(404, detail="No network-level KPI data found")
+    return row
+
+
+@router.get("/network/history")
+async def get_network_kpi_history_api(
+    kpi: str = Query(..., description=f"KPI column. Valid: {', '.join(NETWORK_KPI_COLUMNS)}"),
+    days: int = Query(30, ge=1, le=365),
+):
+    if kpi not in NETWORK_KPI_COLUMNS:
+        raise HTTPException(400, detail=f"Unknown KPI '{kpi}'")
+    data = (
+        get_network_kpi_history(kpi, days)
+        if is_timescale_available()
+        else get_csv_network_history(kpi, days)
+    )
+    return {"kpi": kpi, "days": days, "data": data}
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -162,9 +192,11 @@ async def get_enodeb_kpi_summary(
     Average of all 30 KPIs across all cells for the rolling window.
     Useful for site-level health cards on the dashboard.
     """
-    if not is_timescale_available():
-        raise HTTPException(503, detail="TimescaleDB not available")
-    summary = get_enodeb_summary(enodeb_name, days)
+    summary = (
+        get_enodeb_summary(enodeb_name, days)
+        if is_timescale_available()
+        else get_csv_enodeb_summary(enodeb_name, days)
+    )
     if not summary:
         raise HTTPException(404, detail=f"No data for eNodeB '{enodeb_name}'")
     return {"enodeb_name": enodeb_name, "window_days": days, "kpis": summary}
@@ -180,11 +212,13 @@ async def get_enodeb_kpi_history(
     """
     Daily time-series for one KPI, averaged across all cells of an eNodeB.
     """
-    if not is_timescale_available():
-        raise HTTPException(503, detail="TimescaleDB not available")
     if kpi not in KPI_COLUMNS:
         raise HTTPException(400, detail=f"Unknown KPI '{kpi}'. Valid: {', '.join(KPI_COLUMNS)}")
-    data = get_cell_kpi_history(enodeb_name, kpi, days, granularity)
+    data = (
+        get_cell_kpi_history(enodeb_name, kpi, days, granularity)
+        if is_timescale_available()
+        else get_csv_enodeb_history(enodeb_name, kpi, days)
+    )
     return {"enodeb_name": enodeb_name, "kpi": kpi, "days": days, "data": data}
 
 
@@ -203,32 +237,3 @@ async def get_enodeb_latest_kpis(enodeb_name: str):
         "cell_count": len(rows),
         "cells": rows,
     }
-
-
-# ═════════════════════════════════════════════════════════════════════════════
-# Network-level endpoints (TimescaleDB)
-# ═════════════════════════════════════════════════════════════════════════════
-
-@router.get("/network/latest")
-async def get_network_latest():
-    """Most-recent whole-network KPI snapshot."""
-    if not is_timescale_available():
-        raise HTTPException(503, detail="TimescaleDB not available")
-    row = get_latest_network_kpis()
-    if not row:
-        raise HTTPException(404, detail="No network-level KPI data found")
-    return row
-
-
-@router.get("/network/history")
-async def get_network_kpi_history_api(
-    kpi: str = Query(..., description=f"KPI column. Valid: {', '.join(NETWORK_KPI_COLUMNS)}"),
-    days: int = Query(30, ge=1, le=365),
-):
-    """Daily time-series for one KPI at whole-network level."""
-    if not is_timescale_available():
-        raise HTTPException(503, detail="TimescaleDB not available")
-    if kpi not in NETWORK_KPI_COLUMNS:
-        raise HTTPException(400, detail=f"Unknown KPI '{kpi}'")
-    data = get_network_kpi_history(kpi, days)
-    return {"kpi": kpi, "days": days, "data": data}

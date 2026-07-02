@@ -300,20 +300,36 @@ def get_kpi_history(site_name: str, kpi_name: str, days: int = 7) -> List[Tuple[
         conn = get_db_connection()
         cursor = conn.cursor()
 
-        # Calculate date range
-        end_date = datetime.now()
+        # Anchor the history window to the newest KPI record we actually have
+        # so archived demo datasets still produce charts.
+        cursor.execute("""
+            SELECT MAX(timestamp) as latest_timestamp
+            FROM kpi_data
+            WHERE site_name = ?
+        """, (site_name,))
+
+        latest_row = cursor.fetchone()
+        if not latest_row or not latest_row["latest_timestamp"]:
+            conn.close()
+            return []
+
+        end_date = datetime.fromisoformat(str(latest_row["latest_timestamp"]))
         start_date = end_date - timedelta(days=days)
 
         # Aggregate across all cells per day
         query = f"""
             SELECT DATE(timestamp) as date, AVG({kpi_name}) as value
             FROM kpi_data
-            WHERE site_name = ? AND timestamp >= ?
+            WHERE site_name = ? AND timestamp >= ? AND timestamp <= ?
             GROUP BY DATE(timestamp)
             ORDER BY date
         """
 
-        cursor.execute(query, (site_name, start_date.isoformat()))
+        cursor.execute(query, (
+            site_name,
+            start_date.isoformat(sep=" "),
+            end_date.isoformat(sep=" "),
+        ))
 
         history = []
         for row in cursor.fetchall():

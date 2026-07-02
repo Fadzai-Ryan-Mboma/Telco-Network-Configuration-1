@@ -10,13 +10,22 @@ requests>=2.31.0
 urllib3>=2.0.0
 PyYAML>=6.0
 openpyxl>=3.1.0
+pandas>=2.1.0
+playwright>=1.40.0
+cryptography>=42.0.0
 
-# Optional AI optimizer workflow. NetGenix keeps a deterministic optimizer
-# fallback, but these enable the full multi-agent LLM path.
-langchain==0.3.25
-langchain-core==0.3.79
-langchain-community==0.3.23
-langgraph==0.6.8
-langgraph-checkpoint==2.1.1
-langgraph-prebuilt==0.6.4
-langchain-nvidia-ai-endpoints==0.3.10
+# TimescaleDB / PostgreSQL
+psycopg2-binary>=2.9.9
+
+# AI optimizer workflow — multi-provider LLM factory
+# langchain-google-genai>=3.1.0 is required to fix Gemini 3.x "thinking" models
+# rejecting tool-calling turns with "missing thought_signature" (intermittent
+# 400 errors mid-agent-loop on gemini-3.1-pro-preview). That version requires
+# langchain-core>=1.0, which forces the rest of this stack to the 1.x/0.4.x line.
+langchain==1.3.11
+langchain-core==1.4.8
+langchain-community==0.4.2
+langgraph==1.2.7
+langchain-nvidia-ai-endpoints==1.4.3
+langchain-google-genai==3.2.0
+langchain-mistralai==1.1.5

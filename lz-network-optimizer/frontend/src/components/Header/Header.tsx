@@ -43,6 +43,9 @@ export default function Header({
                 onChange={(e) => onSiteSelect(e.target.value)}
                 className="appearance-none bg-bg-input border border-white/10 rounded-lg px-4 py-2 pr-10 text-white text-sm focus:outline-none focus:border-accent-teal/50 cursor-pointer min-w-[200px]"
               >
+                {sites.length === 0 && (
+                  <option value="">Loading sites...</option>
+                )}
                 {sites.map((site) => (
                   <option key={site.site_name} value={site.site_name}>
                     {site.site_name}

@@ -1,22 +1,87 @@
 import { useEffect, useState } from 'react';
-import { Download, FileText, FileSpreadsheet, History, Layers, UploadCloud } from 'lucide-react';
 import {
+  AlertCircle,
+  CalendarClock,
+  CalendarDays,
+  Database,
+  Download,
+  FileText,
+  FileSpreadsheet,
+  History,
+  Layers,
+  Link2,
+  RefreshCw,
+  Save,
+  ShieldCheck,
+  UploadCloud,
+} from 'lucide-react';
+import {
+  cancelEvaluationReconnect,
   cookReportFiles,
+  getAutomatedReportJobs,
+  getAutomatedReportJob,
+  getEvaluationReconnectStatus,
+  getEvaluationStatus,
   getReportDownloadUrl,
+  getReportExclusions,
   getReportRuns,
   previewReportFile,
+  saveReportExclusions,
+  startAutomatedReport,
+  startEvaluationReconnect,
 } from '../../services/api';
-import type { ReportColumnPreview, ReportRun, ReportRunSummary } from '../../services/api';
+import type {
+  EvaluationStatus,
+  ReconnectSessionStatus,
+  ReportAutomationJob,
+  ReportColumnPreview,
+  ReportRun,
+  ReportRunSummary,
+} from '../../services/api';
+
+function defaultPeriod() {
+  const today = new Date();
+  const end = new Date(today);
+  const daysSinceWednesday = (today.getDay() - 3 + 7) % 7 || 7;
+  end.setDate(today.getDate() - daysSinceWednesday);
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  const iso = (value: Date) => value.toISOString().slice(0, 10);
+  return { start: iso(start), end: iso(end) };
+}
+
+// Mirrors the daily rolling window used by the collector's daily_rolling_report
+// cron job (network/evaluation_exporter.py: default_daily_rolling_period) —
+// the most recently completed 7-day window ending yesterday.
+function dailyRollingPeriod() {
+  const today = new Date();
+  const end = new Date(today);
+  end.setDate(today.getDate() - 1);
+  const start = new Date(end);
+  start.setDate(end.getDate() - 6);
+  const iso = (value: Date) => value.toISOString().slice(0, 10);
+  return { start: iso(start), end: iso(end) };
+}
 
 export default function ReportingPanel() {
+  const initialPeriod = defaultPeriod();
   const [files, setFiles] = useState<File[]>([]);
   const [exclusions, setExclusions] = useState('');
+  const [savedExclusions, setSavedExclusions] = useState('');
+  const [periodStart, setPeriodStart] = useState(initialPeriod.start);
+  const [periodEnd, setPeriodEnd] = useState(initialPeriod.end);
+  const [evaluation, setEvaluation] = useState<EvaluationStatus | null>(null);
+  const [automationJob, setAutomationJob] = useState<ReportAutomationJob | null>(null);
+  const [automationLoading, setAutomationLoading] = useState(false);
+  const [savingExclusions, setSavingExclusions] = useState(false);
   const [reportRun, setReportRun] = useState<ReportRun | null>(null);
   const [preview, setPreview] = useState<ReportColumnPreview | null>(null);
   const [history, setHistory] = useState<ReportRunSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loadingFormat, setLoadingFormat] = useState<'excel' | 'pdf' | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [reconnectSession, setReconnectSession] = useState<ReconnectSessionStatus | null>(null);
+  const [reconnectLoading, setReconnectLoading] = useState(false);
 
   async function loadHistory() {
     const runs = await getReportRuns();
@@ -25,7 +90,106 @@ export default function ReportingPanel() {
 
   useEffect(() => {
     loadHistory().catch(() => setHistory([]));
+    getEvaluationStatus().then(setEvaluation).catch(() => setEvaluation(null));
+    getReportExclusions().then((sites) => setSavedExclusions(sites.join(', '))).catch(() => undefined);
+    getAutomatedReportJobs(1).then((jobs) => setAutomationJob(jobs[0] ?? null)).catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!automationJob || !['queued', 'running'].includes(automationJob.status)) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const job = await getAutomatedReportJob(automationJob.job_id);
+        setAutomationJob(job);
+        if (job.status === 'completed') {
+          await loadHistory();
+          setEvaluation(await getEvaluationStatus());
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not read report status.');
+      }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [automationJob?.job_id, automationJob?.status]);
+
+  useEffect(() => {
+    if (!reconnectSession || !['starting', 'awaiting_login'].includes(reconnectSession.status)) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const session = await getEvaluationReconnectStatus(reconnectSession.session_id);
+        setReconnectSession(session);
+        if (session.status === 'session_saved') {
+          setEvaluation(await getEvaluationStatus());
+        } else if (session.status === 'failed' || session.status === 'timeout') {
+          setError(session.error_message ?? 'Evaluation reconnect did not complete.');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Could not read reconnect status.');
+      }
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [reconnectSession?.session_id, reconnectSession?.status]);
+
+  useEffect(() => {
+    return () => {
+      if (reconnectSession && ['starting', 'awaiting_login'].includes(reconnectSession.status)) {
+        cancelEvaluationReconnect(reconnectSession.session_id).catch(() => undefined);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleReconnect() {
+    setReconnectLoading(true);
+    setError(null);
+    try {
+      const session = await startEvaluationReconnect();
+      setReconnectSession(session);
+      if (session.novnc_url) {
+        window.open(session.novnc_url, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start Evaluation reconnect.');
+    } finally {
+      setReconnectLoading(false);
+    }
+  }
+
+  async function handleAutomation(refresh: boolean, overridePeriod?: { start: string; end: string }) {
+    const start = overridePeriod?.start ?? periodStart;
+    const end = overridePeriod?.end ?? periodEnd;
+    if (overridePeriod) {
+      setPeriodStart(overridePeriod.start);
+      setPeriodEnd(overridePeriod.end);
+    }
+    setAutomationLoading(true);
+    setError(null);
+    try {
+      const overrides = exclusions.split(',').map((site) => site.trim()).filter(Boolean);
+      setAutomationJob(await startAutomatedReport(start, end, refresh, overrides));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start the report.');
+    } finally {
+      setAutomationLoading(false);
+    }
+  }
+
+  function handleRunDailyReportNow() {
+    handleAutomation(true, dailyRollingPeriod());
+  }
+
+  async function handleSaveExclusions() {
+    setSavingExclusions(true);
+    setError(null);
+    try {
+      const sites = savedExclusions.split(',').map((site) => site.trim()).filter(Boolean);
+      setSavedExclusions((await saveReportExclusions(sites)).join(', '));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save exclusions.');
+    } finally {
+      setSavingExclusions(false);
+    }
+  }
 
   async function handleFileChange(nextFiles: File[]) {
     setFiles(nextFiles);
@@ -69,7 +233,110 @@ export default function ReportingPanel() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
+      <section className="border-b border-white/10 pb-6">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-white">Automated Evaluation Report</h3>
+            <p className="mt-1 text-sm text-gray-400">Seven-day network and site performance report</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className={`badge ${evaluation?.connected ? 'badge-success' : 'badge-error'}`}>
+              <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+              {evaluation?.connected ? 'Evaluation connected' : 'Re-authentication required'}
+            </div>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={handleReconnect}
+              disabled={reconnectLoading || (reconnectSession?.status === 'starting' || reconnectSession?.status === 'awaiting_login')}
+              title="Opens a live view of the Evaluation login in a new tab. Complete the login (including CAPTCHA) there — the session is captured automatically once you finish."
+            >
+              <Link2 className="h-4 w-4" />
+              <span>Reconnect</span>
+            </button>
+            {reconnectSession && ['starting', 'awaiting_login'].includes(reconnectSession.status) && (
+              <span className="text-xs text-gray-500">Waiting for login in the reconnect tab…</span>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <label className="text-xs text-gray-500">
+            Period start
+            <span className="input mt-1 flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-accent-teal" />
+              <input className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" type="date" value={periodStart} onChange={(event) => setPeriodStart(event.target.value)} />
+            </span>
+          </label>
+          <label className="text-xs text-gray-500">
+            Period end
+            <span className="input mt-1 flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-accent-teal" />
+              <input className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none" type="date" value={periodEnd} onChange={(event) => setPeriodEnd(event.target.value)} />
+            </span>
+          </label>
+          <label className="text-xs text-gray-500 md:col-span-2">
+            Per-run exclusion overrides
+            <input className="input mt-1 w-full" value={exclusions} onChange={(event) => setExclusions(event.target.value)} placeholder="Site names, comma-separated" />
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button className="btn-primary" onClick={() => handleAutomation(true)} disabled={automationLoading || automationJob?.status === 'running'}>
+            <RefreshCw className={`h-4 w-4 ${automationJob?.status === 'running' ? 'animate-spin' : ''}`} />
+            <span>Refresh &amp; Generate</span>
+          </button>
+          <button className="btn-secondary" onClick={() => handleAutomation(false)} disabled={automationLoading || automationJob?.status === 'running'}>
+            <Database className="h-4 w-4" />
+            <span>Generate from Latest</span>
+          </button>
+          <button
+            className="btn-secondary"
+            onClick={handleRunDailyReportNow}
+            disabled={automationLoading || automationJob?.status === 'running'}
+            title="Refresh and generate a report for the most recently completed 7-day window (same window the daily automation uses)"
+          >
+            <CalendarClock className="h-4 w-4" />
+            <span>Run Daily Report Now</span>
+          </button>
+          <span className="text-xs text-gray-500">
+            Last extract: {evaluation?.last_successful_extraction ? new Date(evaluation.last_successful_extraction).toLocaleString() : 'None'}
+          </span>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <input className="input min-w-0 flex-1" value={savedExclusions} onChange={(event) => setSavedExclusions(event.target.value)} placeholder="Saved non-commercial site exclusions" />
+          <button className="btn-secondary" onClick={handleSaveExclusions} disabled={savingExclusions} title="Save exclusions">
+            <Save className="h-4 w-4" />
+            <span>Save</span>
+          </button>
+        </div>
+
+        {automationJob && (
+          <div className={`mt-4 border-l-2 px-3 py-2 ${automationJob.status === 'failed' ? 'border-status-error bg-status-error/5' : 'border-accent-teal bg-accent-teal/5'}`}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium capitalize text-white">{automationJob.stage.replaceAll('_', ' ')}</p>
+                <p className="text-xs text-gray-500">Job {automationJob.job_id.slice(0, 8)} · {automationJob.period_start} to {automationJob.period_end}</p>
+              </div>
+              {automationJob.status === 'completed' && automationJob.download_url && automationJob.pdf_download_url && (
+                <div className="flex gap-2">
+                  <a className="btn-primary" href={getReportDownloadUrl(automationJob.download_url)}><Download className="h-4 w-4" /><span>Excel</span></a>
+                  <a className="btn-secondary" href={getReportDownloadUrl(automationJob.pdf_download_url)}><FileText className="h-4 w-4" /><span>PDF</span></a>
+                </div>
+              )}
+            </div>
+            {automationJob.error_message && (
+              <p className="mt-2 flex items-center gap-2 text-sm text-status-error"><AlertCircle className="h-4 w-4" />{automationJob.error_message}</p>
+            )}
+            {automationJob.status === 'failed' && automationJob.refresh_requested && (
+              <button className="mt-3 text-sm font-medium text-accent-teal hover:underline" onClick={() => handleAutomation(false)}>Generate from latest successful extract</button>
+            )}
+          </div>
+        )}
+      </section>
+
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 rounded-xl border border-white/5 bg-bg-input p-4">
           <div className="mb-4 flex items-center gap-3">
@@ -77,7 +344,7 @@ export default function ReportingPanel() {
               <FileSpreadsheet className="h-5 w-5 text-accent-teal" />
             </div>
             <div>
-              <h3 className="font-semibold text-white">Weekly Report Cooker</h3>
+              <h3 className="font-semibold text-white">Manual Report Cooker</h3>
               <p className="text-sm text-gray-500">Upload Brighton's raw Evaluation, Telrad, subscriber, and EPC exports.</p>
             </div>
           </div>
@@ -248,8 +515,8 @@ function ReportHistory({ history }: { history: ReportRunSummary[] }) {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-white/5">
-        <table className="w-full text-left text-sm">
+      <div className="max-w-full overflow-x-auto rounded-lg border border-white/5">
+        <table className="min-w-[720px] w-full text-left text-sm">
           <thead className="bg-bg-card-hover text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-3 py-2">Run</th>
