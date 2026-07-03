@@ -13,6 +13,8 @@ logs/
 
 runtime/
 data/report_runs/
+data/discovery/
+data/rollback/
 data/evaluation-session.enc
 data/evaluation-session.enc.invalid
 data/evaluation-session.key
