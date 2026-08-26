@@ -33,6 +33,10 @@ services:
       netgenix-db:
         condition: service_healthy
     env_file: .env
+    extra_hosts:
+      # Optional MAE edge gateway. On Linux this resolves to the Docker host,
+      # where the reverse SSH relay binds only to this Compose bridge.
+      - "mae-edge:host-gateway"
     environment:
       DATABASE_URL: postgresql://netgenix:${DB_PASSWORD:-netgenix_secure_2026}@netgenix-db:5432/netgenix
       DB_HOST: netgenix-db
@@ -77,6 +81,8 @@ services:
       netgenix-db:
         condition: service_healthy
     env_file: .env
+    extra_hosts:
+      - "mae-edge:host-gateway"
     environment:
       DATABASE_URL: postgresql://netgenix:${DB_PASSWORD:-netgenix_secure_2026}@netgenix-db:5432/netgenix
       DB_HOST: netgenix-db

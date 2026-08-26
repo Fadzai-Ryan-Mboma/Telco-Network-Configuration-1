@@ -233,6 +233,13 @@ cd netgenix
 docker compose up -d
 ```
 
+### VM deployment through an MAE edge gateway
+
+When the application VM cannot route directly to Huawei MAE, run the secure
+reverse-SSH edge gateway on an MAE-reachable host. See
+[`docs/MAE_EDGE_GATEWAY.md`](docs/MAE_EDGE_GATEWAY.md) for the network design,
+VM environment values, supervision, and end-to-end health check.
+
 ### Verifying a deployment
 
 ```bash
