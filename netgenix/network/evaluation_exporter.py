@@ -317,8 +317,12 @@ def _download_report(page: Page, report: Frame, destination: Path) -> Path:
     ok_frame.get_by_text("OK", exact=True).click()
 
     zip_link = result_page.get_by_text(re.compile(r"LTZIM.*\.zip$", re.I)).last
+    # Huawei generates the export asynchronously. Large cell-level periods can
+    # take longer than Playwright's default 30-second action timeout before the
+    # ZIP link appears, even though the download itself already allows 180s.
+    zip_link.wait_for(state="visible", timeout=180_000)
     with result_page.expect_download(timeout=180_000) as download_info:
-        zip_link.click()
+        zip_link.click(timeout=180_000)
     destination.parent.mkdir(parents=True, exist_ok=True)
     download_info.value.save_as(str(destination))
     result_page.close()

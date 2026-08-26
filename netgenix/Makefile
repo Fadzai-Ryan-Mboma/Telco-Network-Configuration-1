@@ -1,6 +1,29 @@
 SHELL := /bin/bash
+COMPOSE := docker compose
+COMPOSE_BUILD := docker compose build --builder default
 
-.PHONY: preflight deploy-netgenix deploy-netgenix-dry-run
+.PHONY: up down restart logs ps build preflight deploy-netgenix deploy-netgenix-dry-run
+
+up:
+	$(COMPOSE_BUILD)
+	$(COMPOSE) up -d --no-build
+
+down:
+	$(COMPOSE) down
+
+restart:
+	$(COMPOSE) down
+	$(COMPOSE_BUILD)
+	$(COMPOSE) up -d --no-build
+
+logs:
+	$(COMPOSE) logs -f
+
+ps:
+	$(COMPOSE) ps
+
+build:
+	$(COMPOSE_BUILD)
 
 preflight:
 	./scripts/deploy-netgenix.sh --preflight-only
