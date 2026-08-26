@@ -256,7 +256,8 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-ssh "${NETGENIX_VM_SSH_TARGET}" bash -s -- \
+printf -v remote_deploy_command \
+  'bash -s -- %q %q %q %q %q %q %q %q' \
   "${release_sha}" \
   "${NETGENIX_DEPLOY_REMOTE}" \
   "${NETGENIX_DEPLOY_BRANCH}" \
@@ -264,7 +265,9 @@ ssh "${NETGENIX_VM_SSH_TARGET}" bash -s -- \
   "${NETGENIX_VM_DATA_DIR}" \
   "${NETGENIX_REMOTE_APP_SUBDIR}" \
   "${NETGENIX_REMOTE_BACKEND_URL}" \
-  "${NETGENIX_REMOTE_FRONTEND_URL}" <<'REMOTE_SCRIPT'
+  "${NETGENIX_REMOTE_FRONTEND_URL}"
+
+ssh "${NETGENIX_VM_SSH_TARGET}" "${remote_deploy_command}" <<'REMOTE_SCRIPT'
 set -eEuo pipefail
 
 release_sha="$1"
