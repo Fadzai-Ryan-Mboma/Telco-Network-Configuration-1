@@ -6,6 +6,7 @@ import sys
 import logging
 from pathlib import Path
 from fastapi import APIRouter, HTTPException
+from starlette.concurrency import run_in_threadpool
 
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
@@ -37,17 +38,21 @@ async def run_optimization_api(request: OptimizationRequest):
     5. Validation Agent - risk assessment
     """
     # Verify site exists
-    site_info = get_site_info(request.site_name)
+    site_info = await run_in_threadpool(get_site_info, request.site_name)
     if not site_info:
         raise HTTPException(status_code=404, detail=f"Site '{request.site_name}' not found")
 
     logger.info(f"Running optimization for {request.site_name}: {request.query}")
 
     # Run the optimization workflow
-    result = run_optimization(
+    # KPI collection and the provider SDK are synchronous. Keep them off the
+    # event loop so a slow model response does not stall status, site, and
+    # diagnostics requests for every dashboard user.
+    result = await run_in_threadpool(
+        run_optimization,
         site_name=request.site_name,
         cell_id=request.cell_id,
-        user_query=request.query
+        user_query=request.query,
     )
 
     # Convert to API response format

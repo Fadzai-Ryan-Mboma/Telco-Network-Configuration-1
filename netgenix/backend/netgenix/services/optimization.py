@@ -198,7 +198,11 @@ def _run_real_llm_optimization(site_name: str, cell_id: int, user_query: str) ->
     if not any(context["history"].values()):
         raise RuntimeError(f"No per-site KPI history is available for {site_name}")
 
-    llm = get_llm_client(temperature=0.2, max_tokens=2200, timeout=120)
+    # Gemini 3.1 counts internal reasoning against max_output_tokens. A 2,200
+    # token cap was exhausted almost entirely by reasoning, truncating the JSON
+    # response before LangChain could parse it. Leave enough room for both the
+    # reasoning trace and the complete structured recommendation.
+    llm = get_llm_client(temperature=0.2, max_tokens=8192, timeout=120)
     # Structured output uses Gemini's native JSON-schema constrained decoding
     # (langchain-google-genai>=3.1's with_structured_output), so required
     # fields like risk_score/kpi_comparison are guaranteed present instead of

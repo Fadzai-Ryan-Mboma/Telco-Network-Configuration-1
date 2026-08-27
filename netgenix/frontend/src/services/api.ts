@@ -315,7 +315,7 @@ export const getSiteStatus = async (siteName: string): Promise<SystemStatus> => 
 export const runOptimization = async (request: OptimizationRequest): Promise<OptimizationResult> => {
   // The LLM-backed analysis routinely takes 15-40s, well past the default
   // client timeout used for lightweight status/data calls.
-  const response = await api.post('/api/optimize', request, { timeout: 90000 });
+  const response = await api.post('/api/optimize', request, { timeout: 300000 });
   return response.data;
 };
 
