@@ -398,6 +398,12 @@ def export_evaluation_report(
             report = _open_report(page, report_name)
             _set_section_period(report, "Whole Network Main KPIs", start, end)
             _set_section_period(report, "Cell Level KPIs", start, end)
+            # MAE keeps the active sub-report's edited condition in its client-side
+            # view until focus leaves that section. Without this tab change the
+            # Cell Level dialog displays the new dates, but the query is submitted
+            # with its previously committed period.
+            report.locator("span").filter(has_text="Whole Network Main KPIs").click()
+            page.wait_for_timeout(750)
             _download_report(page, report, destination)
             _validate_downloaded_period(destination, start, end)
             save_session(context)
