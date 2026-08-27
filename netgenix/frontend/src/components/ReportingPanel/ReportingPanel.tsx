@@ -345,7 +345,7 @@ export default function ReportingPanel() {
             </div>
             <div>
               <h3 className="font-semibold text-white">Manual Report Cooker</h3>
-              <p className="text-sm text-gray-500">Upload Brighton's raw Evaluation, Telrad, subscriber, and EPC exports.</p>
+              <p className="text-sm text-gray-500">Upload manually extracted Evaluation export.</p>
             </div>
           </div>
 
