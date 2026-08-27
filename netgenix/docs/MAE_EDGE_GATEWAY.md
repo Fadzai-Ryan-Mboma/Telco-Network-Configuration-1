@@ -2,8 +2,8 @@
 
 NetGenix can keep its application stack on a VM that cannot route directly to
 Huawei MAE. An MAE-reachable edge host opens a persistent, TLS-transparent
-reverse SSH tunnel to listeners bound only to the VM's private NetGenix Docker
-bridge.
+reverse SSH tunnel to listeners bound only to the VM's Docker host-gateway
+address.
 
 ## Traffic flow
 
@@ -12,7 +12,7 @@ NetGenix backend/collector
         |
         | HTTPS to mae-edge:33xxx
         v
-VM private Docker gateway
+VM Docker host gateway
         |
         | reverse SSH tunnel
         v
@@ -42,15 +42,16 @@ The backend and collector receive `mae-edge` through Docker's `host-gateway`
 mapping in `docker-compose.yml`.
 
 The VM helper `/usr/local/sbin/netgenix-mae-edge-firewall` allows only the
-NetGenix Docker subnet to reach the four listener ports on that bridge address.
+NetGenix Docker subnet to reach the four listener ports on Docker's bridge
+gateway address (the same address supplied by `host-gateway`).
 It does not open those ports on the VM's public or LAN interfaces.
 
 ## Edge process
 
 Run `scripts/mae-edge-tunnel.sh` on the MAE-reachable host. On macOS it should
 be supervised by a LaunchAgent with `RunAtLoad` and `KeepAlive` enabled. The
-script discovers the VM's current NetGenix Docker gateway before opening the
-four forwards and reconnects automatically after SSH or network interruption.
+script discovers the VM's current Docker host-gateway before opening the four
+forwards and reconnects automatically after SSH or network interruption.
 
 The VM requires two one-time installation steps:
 

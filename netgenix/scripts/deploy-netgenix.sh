@@ -237,7 +237,7 @@ if [[ "${SYNC_ENV}" -eq 1 ]]; then
     printf '[dry-run] sync %s -> %s:%s\n' "${NETGENIX_LOCAL_ENV_FILE}" "${NETGENIX_VM_SSH_TARGET}" "${remote_env_path}"
   else
     ssh "${NETGENIX_VM_SSH_TARGET}" \
-      "set -euo pipefail; target=\"${remote_env_path}\"; case \"\$target\" in ~) target=\"\$HOME\" ;; ~/*) target=\"\$HOME/\${target#~/}\" ;; esac; mkdir -p \"\$(dirname \"\$target\")\"; umask 077; cat > \"\$target\"; chmod 600 \"\$target\";" \
+      "set -euo pipefail; target=\"${remote_env_path}\"; case \"\$target\" in \"~\") target=\"\$HOME\" ;; \"~/\"*) target=\"\$HOME/\${target:2}\" ;; esac; mkdir -p \"\$(dirname \"\$target\")\"; umask 077; cat > \"\$target\"; chmod 600 \"\$target\";" \
       < "${NETGENIX_LOCAL_ENV_FILE}"
   fi
 fi
@@ -281,11 +281,11 @@ frontend_url="$8"
 
 expand_home() {
   case "$1" in
-    "~")
+    '~')
       printf '%s\n' "$HOME"
       ;;
-    "~/"*)
-      printf '%s/%s\n' "$HOME" "${1#~/}"
+    '~/'*)
+      printf '%s/%s\n' "$HOME" "${1:2}"
       ;;
     *)
       printf '%s\n' "$1"

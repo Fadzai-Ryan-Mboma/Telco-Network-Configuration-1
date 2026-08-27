@@ -4,12 +4,14 @@ set -eEuo pipefail
 # Persistent, TLS-transparent MAE edge relay.
 #
 # This process runs on a host that can reach Huawei MAE. It opens four reverse
-# SSH listeners on the NetGenix VM's private Docker bridge. Backend and
-# collector containers connect to the hostname `mae-edge`; no MAE listener is
-# exposed on the VM's public or LAN interfaces.
+# SSH listeners on the VM's Docker host-gateway address. Backend and collector
+# containers connect to the hostname `mae-edge`; firewall access is restricted
+# to the NetGenix Compose subnet and no MAE listener is exposed on public or
+# LAN interfaces.
 
 SSH_TARGET="${NETGENIX_EDGE_SSH_TARGET:-fmboma@10.169.39.39}"
-DOCKER_NETWORK="${NETGENIX_EDGE_DOCKER_NETWORK:-netgenix_default}"
+SOURCE_DOCKER_NETWORK="${NETGENIX_EDGE_DOCKER_NETWORK:-netgenix_default}"
+LISTENER_DOCKER_NETWORK="${NETGENIX_EDGE_LISTENER_DOCKER_NETWORK:-bridge}"
 RETRY_SECONDS="${NETGENIX_EDGE_RETRY_SECONDS:-10}"
 
 ACCESS_HOST="${NETGENIX_EDGE_ACCESS_HOST:-41.174.191.214}"
@@ -24,12 +26,12 @@ log() {
   printf '[mae-edge] %s\n' "$*"
 }
 
-resolve_docker_gateway() {
+resolve_listener_gateway() {
   ssh \
     -o BatchMode=yes \
     -o ConnectTimeout=10 \
     "${SSH_TARGET}" \
-    "docker network inspect '${DOCKER_NETWORK}' --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'"
+    "docker network inspect '${LISTENER_DOCKER_NETWORK}' --format '{{range .IPAM.Config}}{{.Gateway}}{{end}}'"
 }
 
 prepare_vm_listener() {
@@ -37,7 +39,7 @@ prepare_vm_listener() {
     -o BatchMode=yes \
     -o ConnectTimeout=10 \
     "${SSH_TARGET}" \
-    "sudo -n /usr/local/sbin/netgenix-mae-edge-firewall '${DOCKER_NETWORK}'"
+    "sudo -n /usr/local/sbin/netgenix-mae-edge-firewall '${SOURCE_DOCKER_NETWORK}' '${LISTENER_DOCKER_NETWORK}'"
 }
 
 valid_ipv4() {
@@ -52,9 +54,9 @@ while true; do
     continue
   fi
 
-  gateway="$(resolve_docker_gateway 2>/dev/null || true)"
+  gateway="$(resolve_listener_gateway 2>/dev/null || true)"
   if ! valid_ipv4 "${gateway}"; then
-    log "Docker gateway for ${DOCKER_NETWORK} is unavailable; retrying in ${RETRY_SECONDS}s"
+    log "Docker gateway for ${LISTENER_DOCKER_NETWORK} is unavailable; retrying in ${RETRY_SECONDS}s"
     sleep "${RETRY_SECONDS}"
     continue
   fi

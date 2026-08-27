@@ -690,16 +690,29 @@ def check_api_status(site_name: str = None) -> Dict[str, str]:
     else:
         status["ne"] = "⚠️ NEs Unknown"
 
-    # 3. Check database connectivity
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) as count FROM kpi_data")
-        row = cursor.fetchone()
-        conn.close()
-        status["db"] = "✅ DB Connected"
-    except:
-        status["db"] = "❌ DB Unreachable"
+    # 3. Check the configured production database. Only use the legacy SQLite
+    # database when no Timescale/PostgreSQL connection is configured.
+    if os.getenv("DATABASE_URL"):
+        try:
+            from .db_timescale import is_timescale_available
+
+            status["db"] = (
+                "✅ DB Connected" if is_timescale_available() else "❌ DB Unreachable"
+            )
+        except Exception as exc:
+            logger.debug("TimescaleDB status check failed: %s", exc)
+            status["db"] = "❌ DB Unreachable"
+    else:
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) as count FROM kpi_data")
+            cursor.fetchone()
+            conn.close()
+            status["db"] = "✅ DB Connected"
+        except Exception as exc:
+            logger.debug("SQLite status check failed: %s", exc)
+            status["db"] = "❌ DB Unreachable"
 
     return status
 
