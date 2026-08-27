@@ -1,8 +1,14 @@
-import type { NBIDiagnostics, NBIEnvironmentDiagnostic, SystemStatus } from '../../services/api';
+import type {
+  EvaluationStatus,
+  NBIDiagnostics,
+  NBIEnvironmentDiagnostic,
+  SystemStatus,
+} from '../../services/api';
 
 interface StatusIndicatorsProps {
   status: SystemStatus | null;
   nbiDiagnostics?: NBIDiagnostics | null;
+  evaluationStatus?: EvaluationStatus | null;
 }
 
 function getNBIIndicator(environment?: NBIEnvironmentDiagnostic) {
@@ -19,9 +25,12 @@ function getNBIIndicator(environment?: NBIEnvironmentDiagnostic) {
   };
 }
 
-export default function StatusIndicators({ status, nbiDiagnostics }: StatusIndicatorsProps) {
+export default function StatusIndicators({
+  status,
+  nbiDiagnostics,
+  evaluationStatus,
+}: StatusIndicatorsProps) {
   const access = nbiDiagnostics?.environments.find((environment) => environment.name === 'Access');
-  const evaluation = nbiDiagnostics?.environments.find((environment) => environment.name === 'Evaluation');
 
   const indicators = [
     {
@@ -42,8 +51,9 @@ export default function StatusIndicators({ status, nbiDiagnostics }: StatusIndic
       ...getNBIIndicator(access),
     },
     {
-      label: 'Evaluation NBI',
-      ...getNBIIndicator(evaluation),
+      label: 'Evaluation GUI',
+      connected: evaluationStatus?.connected ?? false,
+      warning: !evaluationStatus,
     },
   ];
 

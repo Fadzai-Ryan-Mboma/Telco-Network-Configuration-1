@@ -19,6 +19,7 @@ import {
   getKPIHistory,
   getActivity,
   getNBIDiagnostics,
+  getEvaluationStatus,
   getTopologySites,
 } from '../services/api';
 import type { KPIHistory, OptimizationResult } from '../services/api';
@@ -131,6 +132,12 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
   const { data: nbiDiagnostics } = useQuery({
     queryKey: ['nbiDiagnostics'],
     queryFn: getNBIDiagnostics,
+    refetchInterval: 60000,
+  });
+
+  const { data: evaluationStatus } = useQuery({
+    queryKey: ['evaluationStatus'],
+    queryFn: getEvaluationStatus,
     refetchInterval: 60000,
   });
 
@@ -360,7 +367,11 @@ export default function Dashboard({ theme, onThemeChange }: DashboardProps) {
         <ParameterGrid parameters={parameters ?? null} loading={paramsLoading} />
 
         {/* Status Indicators */}
-        <StatusIndicators status={systemStatus ?? null} nbiDiagnostics={nbiDiagnostics ?? null} />
+        <StatusIndicators
+          status={systemStatus ?? null}
+          nbiDiagnostics={nbiDiagnostics ?? null}
+          evaluationStatus={evaluationStatus ?? null}
+        />
 
         {/* Two Column Layout */}
         <div className="grid grid-cols-5 gap-6">
