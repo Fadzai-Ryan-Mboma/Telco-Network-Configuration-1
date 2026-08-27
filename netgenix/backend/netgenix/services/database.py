@@ -227,6 +227,12 @@ def get_all_sites() -> List[Dict[str, str]]:
     Returns:
         List of dicts with site information
     """
+    # Production uses TimescaleDB (with the inventory CSV as its offline
+    # fallback). Do not probe the legacy SQLite schema on every request when a
+    # PostgreSQL deployment is explicitly configured.
+    if os.getenv("DATABASE_URL"):
+        return _get_inventory_sites()
+
     try:
         conn = get_db_connection()
         cursor = conn.cursor()
