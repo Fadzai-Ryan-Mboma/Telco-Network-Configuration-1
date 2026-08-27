@@ -36,6 +36,7 @@ NETGENIX_HUAWEI_ACCESS_NBI_URL=https://mae-edge:33127
 NETGENIX_HUAWEI_ACCESS_GUI_URL=https://mae-edge:33143/ossfacewebsite/index.html#Access/AccessHome?switch
 NETGENIX_HUAWEI_EVALUATION_GUI_URL=https://mae-edge:33243/ossfacewebsite/index.html#Evaluation/prs_reportmanagement_reportList
 NETGENIX_HUAWEI_EVALUATION_NBI_URL=https://mae-edge:33217
+MAE_GUI_LOGIN_URL=https://mae-edge:33243/unisso/login.action?service=%2Funisess%2Fv1%2Fauth%3Fservice%3D%252Fossfacewebsite%252Findex.html&decision=1
 ```
 
 The backend and collector receive `mae-edge` through Docker's `host-gateway`
